@@ -1,0 +1,58 @@
+cookies/session_cookies.json
+dist/cookies/session_cookies.json
+# 忽略Log文件夹下的所有日志文件
+Log/
+Log/*
+# 忽略构建和发布目录
+build/
+build/*
+dist/
+dist/*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 日志和缓存
+*.log
+Log/
+.cache/
+config/cookie.json
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
