@@ -59,7 +59,7 @@ class SideBarAuthor(QWidget):
             ("电子邮件:", "3298732438@qq.com"),
             ("版权信息:", "© 2024-2025 顾佳俊 保留所有权利"),
             ("软件版本:", "1.0.0 alpha 测试版"),
-            ("项目地址:", "https://github.com/xxx(暂未开源)")
+            ("项目地址:", "https://github.com/F7Pme/LiXinTools")
         ]
         
         # 添加信息项 - 使用更小字体和间距
