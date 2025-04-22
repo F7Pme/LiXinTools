@@ -19,14 +19,14 @@ LiXinTools是一个基于PySide6的工具集应用程序，专为上海立信立
 ## 程序截图
 
 ### 登录界面
-![登录界面](screenshots/登录界面.png)
+<img src="screenshots/登录界面.png" width="500" alt="登录界面">
 
 ### 多账户管理
-![主界面](screenshots/多账户管理.png)
+<img src="screenshots/多账户管理.png" width="500" alt="多账户管理">
 
 ### 一卡通功能
-![一卡通功能](screenshots/账单查询分析.png)
-![一卡通功能](screenshots/电费查询分析.png)
+<img src="screenshots/账单查询分析.png" width="500" alt="账单查询分析">
+<img src="screenshots/电费查询分析.png" width="500" alt="电费查询分析">
 
 
 ## 安装要求
