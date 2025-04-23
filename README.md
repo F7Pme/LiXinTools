@@ -59,23 +59,51 @@ build_exe.bat
 
 ## 项目结构
 
+- `main.py`: 程序入口文件
+- `build_exe.bat`: Windows下打包可执行文件的脚本
+- `LiXinTools.spec`: PyInstaller打包配置文件
+- `requirements.txt`: 项目依赖库列表
 - `core/`: 核心功能模块
   - `auth.py`: 认证和会话管理
   - `MainApp.py`: 主应用程序逻辑
   - `display.py`: 显示相关功能
+  - `__init__.py`: 包初始化文件
 - `gui/`: 图形用户界面组件
+  - `BaseWindow.py`: 窗口基类
   - `LoginWindow.py`: 登录窗口
   - `MainWindow.py`: 主窗口
-  - `SideBar*.py`: 各种侧边栏组件
+  - `MessageWindow.py`: 消息提示窗口
+  - `LoadWindow.py`: 加载窗口
+  - `LogWindow.py`: 日志窗口
+  - `SideBar.py`: 侧边栏基础组件
+  - `SideBar_author.py`: 作者信息侧边栏
+  - `SideBar_bill.py`: 账单查询侧边栏
+  - `SideBar_electricity.py`: 电费查询侧边栏
+  - `SideBar_info.py`: 信息展示侧边栏
+  - `SideBar_xxt.py`: 学习通侧边栏
+  - `TitleBar.py`: 标题栏组件
   - `styles.py`: UI样式定义
+  - `__init__.py`: 包初始化文件
+  - `styles/`: 样式资源文件
+  - `pic/`: 图片资源文件
 - `config/`: 配置文件和数据
   - `config.py`: 应用程序配置
   - `room_data/`: 房间数据
+  - `__init__.py`: 包初始化文件
 - `utils/`: 工具函数
   - `query_xxt.py`: 学习通查询工具
+  - `query_bill.py`: 账单查询工具
+  - `query_electricity.py`: 电费查询工具
+  - `analysis_bill.py`: 账单分析工具
+  - `analysis_electricity.py`: 电费分析工具
   - `data_parser.py`: 数据解析器
+  - `__init__.py`: 包初始化文件
+- `dist/`: 打包后的可执行文件目录
+- `build/`: 构建临时文件目录
+- `screenshots/`: 应用程序截图目录
 - `Log/`: 日志文件目录
 - `cookies/`: 保存的会话数据
+- `__pycache__/`: Python缓存文件目录
 
 ## 开发者模式
 
