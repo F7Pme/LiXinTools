@@ -155,12 +155,30 @@ class SessionManager:
             if match:
                 self.user_avatar_url = match.group(1)
                 self.user_name = match.group(2).strip()
-                print(f"[√] 成功获取用户头像: {self.user_avatar_url}")
-                print(f"[√] 用户名: {self.user_name}")
+                # 使用日志窗口记录成功信息
+                try:
+                    from gui.LoginWindow import log_window
+                    if log_window:
+                        log_window.log(f"成功获取用户头像: {self.user_avatar_url}", "INFO")
+                        log_window.log(f"用户名: {self.user_name}", "INFO")
+                except ImportError:
+                    pass
                 return self.user_avatar_url, self.user_name
             else:
-                print("[!] 未能找到用户头像")
+                # 使用日志窗口记录警告信息
+                try:
+                    from gui.LoginWindow import log_window
+                    if log_window:
+                        log_window.log("未能找到用户头像", "WARNING")
+                except ImportError:
+                    pass
                 return None, None
         except Exception as e:
-            print(f"[!] 获取用户头像失败: {str(e)}")
+            # 使用日志窗口记录错误信息
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log(f"获取用户头像失败: {str(e)}", "ERROR")
+            except ImportError:
+                pass
             return None, None

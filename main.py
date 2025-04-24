@@ -29,11 +29,7 @@ if __name__ == "__main__":
     app.setQuitOnLastWindowClosed(True)
     
     # 创建登录窗口 - 使用单例模式
-    try:
-        window = LoginWindow.get_instance()
-    except RuntimeError:
-        # 如果单例已存在，直接获取
-        window = LoginWindow.get_instance()
+    window = LoginWindow.get_instance()
     window.show()
     
     # 如果开发者日志窗口存在，设置定时更新并显示

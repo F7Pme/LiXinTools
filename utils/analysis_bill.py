@@ -58,8 +58,7 @@ class BillAnalysisWorker(QObject):
             # 主动释放不需要的引用以减少内存占用
             del items
             
-            # 尝试强制垃圾回收
-            gc.collect()
+            # 不需要每次都手动强制垃圾回收，让Python自行管理
             
             if total_pages > 1:
                 # 增加批次大小以减少循环次数，提高效率
@@ -114,7 +113,7 @@ class BillAnalysisWorker(QObject):
                     
                     # 清理当前批次数据减少内存占用
                     del batch_results
-                    gc.collect()
+                    # 不需要每次批处理后都强制垃圾回收
             
             query_time = time.time() - start_time
             self.write_log(f"账单查询完成，用时 {query_time:.2f} 秒，共获取 {len(all_items)} 条记录，开始分析...", "INFO")
@@ -127,6 +126,7 @@ class BillAnalysisWorker(QObject):
             
             # 主动释放原始数据
             all_items = []
+            # 在大量数据处理完成后手动触发一次垃圾回收是合理的
             gc.collect()
             
             analysis_time = time.time() - analysis_start_time

@@ -259,7 +259,13 @@ class XxtQuery:
             return resp.text
             
         except Exception as e:
-            print(f"[!] 获取课程详情失败: {str(e)}")
+            # 使用日志窗口记录错误，而不是打印到控制台
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log(f"获取课程详情失败: {str(e)}", "ERROR")
+            except ImportError:
+                pass
             return f"<html><body><h1>获取课程详情失败</h1><p>{str(e)}</p></body></html>"
         finally:
             # 恢复原始headers

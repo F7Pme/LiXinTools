@@ -787,21 +787,6 @@ class LogWindow(BaseWindow):
         # 再次执行一次完整的垃圾回收
         gc.collect()
         
-        # 3. 清理Python解释器内部缓存
-        try:
-            # 尝试清理__pycache__目录
-            import os
-            import shutil
-            for root, dirs, files in os.walk('.'):
-                if '__pycache__' in dirs:
-                    pycache_dir = os.path.join(root, '__pycache__')
-                    try:
-                        shutil.rmtree(pycache_dir)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-            
         # 4. 尝试调用Qt的立即释放内存机制
         from PySide6.QtWidgets import QApplication
         QApplication.instance().processEvents()  # 处理所有挂起事件
