@@ -57,6 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fixDataBtn) {
         fixDataBtn.addEventListener('click', fixHistoryData);
     }
+
+    // 添加宿舍历史电量图表模态框功能
+    setupRoomHistoryFeature();
 });
 
 // 设置表格排序功能
@@ -65,8 +68,8 @@ function setupTableSorting() {
 
     // 当前排序状态
     window.currentSort = {
-        field: 'electricity', // 默认按电量排序
-        direction: 'asc'      // 默认升序排列（电量从低到高）
+        field: 'room', // 默认按房间号排序（修改为房间号）
+        direction: 'asc'      // 默认升序排列
     };
 
     // 为所有可排序的表头添加点击事件
@@ -94,7 +97,7 @@ function setupTableSorting() {
         });
     });
 
-    // 初始化表头样式 - 默认按电量升序
+    // 初始化表头样式 - 修改为默认按房间号升序
     setTimeout(() => {
         updateSortHeaderStyles();
     }, 1000);
@@ -245,7 +248,7 @@ async function fetchElectricityData() {
             // 存储原始数据用于搜索和排序
             window.originalRoomData = data.data;
 
-            // 应用默认排序 - 按电量升序排列
+            // 应用当前排序设置 - 使用当前排序字段和方向
             const sortedData = sortRoomData([...window.originalRoomData]);
 
             // 显示排序后的数据
@@ -309,6 +312,12 @@ function displayRoomData(roomsData) {
             <td>${electricity.toFixed(2)}</td>
             <td><span class="electricity-status ${statusClass}">${status}</span></td>
         `;
+
+        // 为每行添加点击事件，点击后显示该宿舍的历史电量数据
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', () => {
+            showRoomHistory(room.building, room.room);
+        });
 
         roomDataElement.appendChild(row);
     });
@@ -672,7 +681,7 @@ function searchRooms() {
         );
     });
 
-    // 对过滤后的结果应用排序
+    // 对过滤后的结果应用当前排序设置
     const sortedFilteredRooms = sortRoomData([...filteredRooms]);
 
     // 显示排序后的过滤结果
@@ -1044,5 +1053,313 @@ async function fetchDebugInfo() {
                 <p class="mb-0">请检查服务器日志或尝试重启应用。</p>
             </div>
         `;
+    }
+}
+
+// 设置宿舍历史电量相关功能
+function setupRoomHistoryFeature() {
+    // 如果有任何初始化工作，可以在这里完成
+    console.log('宿舍历史电量功能已初始化');
+}
+
+// 显示宿舍历史电量数据模态框
+function showRoomHistory(building, room) {
+    // 获取模态框并显示
+    const modal = new bootstrap.Modal(document.getElementById('roomHistoryModal'));
+    modal.show();
+
+    // 显示房间信息
+    document.getElementById('room-history-title').textContent = `新苑${building}号楼 - ${room}`;
+
+    // 显示加载状态
+    document.getElementById('room-history-loading').style.display = 'block';
+    document.getElementById('room-history-content').style.display = 'none';
+    document.getElementById('room-history-error').style.display = 'none';
+
+    // 获取宿舍历史电量数据
+    fetchRoomHistoryData(building, room);
+}
+
+// 获取宿舍历史电量数据
+function fetchRoomHistoryData(building, room) {
+    // 显示加载状态
+    document.getElementById('room-history-loading').style.display = 'block';
+    document.getElementById('room-history-content').style.display = 'none';
+    document.getElementById('room-history-error').style.display = 'none';
+
+    // 获取房间历史数据
+    fetch(`/api/room_history/${building}/${room}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`请求失败，状态码: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (data.history && data.history.length > 0) {
+                // 计算消耗电量
+                calculateConsumption(data.history);
+                // 显示数据
+                displayRoomHistoryData(data.history);
+            } else {
+                throw new Error('没有找到历史数据');
+            }
+        })
+        .catch(error => {
+            console.error('获取房间历史数据时出错:', error);
+            document.getElementById('room-history-loading').style.display = 'none';
+            document.getElementById('room-history-error').style.display = 'block';
+            document.getElementById('room-history-error').textContent = `获取历史数据失败: ${error.message}`;
+        });
+}
+
+// 计算消耗电量
+function calculateConsumption(data) {
+    try {
+        // 验证输入数据
+        if (!Array.isArray(data) || data.length === 0) {
+            console.warn('没有数据可以计算消耗电量');
+            return;
+        }
+
+        // 按时间从早到晚排序
+        const sortedData = [...data].sort((a, b) => new Date(a.query_time) - new Date(b.query_time));
+
+        // 计算相邻数据点之间的消耗量
+        for (let i = 1; i < sortedData.length; i++) {
+            const prevRecord = sortedData[i - 1];
+            const currRecord = sortedData[i];
+
+            if (!prevRecord.electricity || !currRecord.electricity) {
+                currRecord.consumption = null;
+                continue;
+            }
+
+            const prevElectricity = parseFloat(prevRecord.electricity);
+            const currElectricity = parseFloat(currRecord.electricity);
+
+            if (isNaN(prevElectricity) || isNaN(currElectricity)) {
+                currRecord.consumption = null;
+                continue;
+            }
+
+            // 如果前一个电量大于当前电量，说明期间有消耗
+            if (prevElectricity > currElectricity) {
+                // 计算消耗量
+                currRecord.consumption = (prevElectricity - currElectricity).toFixed(2);
+            } else {
+                // 如果电量增加或不变，可能是充值了或者没有用电
+                currRecord.consumption = '0.00';
+            }
+        }
+
+        // 第一个数据点没有前一个点，不能计算消耗
+        if (sortedData.length > 0) {
+            sortedData[0].consumption = null;
+        }
+    } catch (error) {
+        console.error('计算消耗电量时出错:', error);
+    }
+}
+
+// 显示房间历史数据
+function displayRoomHistoryData(historyData) {
+    try {
+        // 验证数据
+        if (!Array.isArray(historyData) || historyData.length === 0) {
+            throw new Error('没有有效的历史数据可以显示');
+        }
+
+        // 隐藏加载状态
+        document.getElementById('room-history-loading').style.display = 'none';
+        document.getElementById('room-history-content').style.display = 'block';
+        document.getElementById('room-history-error').style.display = 'none';
+
+        // 获取表格元素和表格体
+        const tableBody = document.getElementById('room-history-data');
+        if (!tableBody) {
+            console.error('找不到历史数据表格元素');
+            return;
+        }
+
+        // 清空表格
+        tableBody.innerHTML = '';
+
+        // 准备数据 - 按时间顺序排序（从晚到早）
+        const sortedData = [...historyData].sort((a, b) => new Date(b.query_time) - new Date(a.query_time));
+
+        // 添加数据行
+        sortedData.forEach(record => {
+            const row = document.createElement('tr');
+
+            // 格式化日期时间
+            const date = new Date(record.query_time);
+            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+
+            // 添加日期时间单元格
+            const dateCell = document.createElement('td');
+            dateCell.textContent = formattedDate;
+            row.appendChild(dateCell);
+
+            // 添加电量单元格
+            const electricityCell = document.createElement('td');
+            electricityCell.textContent = parseFloat(record.electricity).toFixed(2);
+            row.appendChild(electricityCell);
+
+            // 添加消耗电量单元格
+            const consumptionCell = document.createElement('td');
+            consumptionCell.textContent = record.consumption !== null ? record.consumption : '-';
+            row.appendChild(consumptionCell);
+
+            tableBody.appendChild(row);
+        });
+
+        // 创建电量图表
+        createElectricityChart(historyData);
+    } catch (error) {
+        console.error('显示历史数据时出错:', error);
+        document.getElementById('room-history-loading').style.display = 'none';
+        document.getElementById('room-history-content').style.display = 'none';
+        document.getElementById('room-history-error').style.display = 'block';
+        document.getElementById('room-history-error').textContent = `显示历史数据失败: ${error.message}`;
+    }
+}
+
+// 创建电量图表
+function createElectricityChart(historyData) {
+    try {
+        // 获取画布元素
+        const canvas = document.getElementById('electricityChart');
+        if (!canvas) {
+            console.error('无法找到图表画布元素');
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+
+        // 准备数据 - 需要按时间顺序排序（从早到晚）
+        const sortedData = [...historyData].sort((a, b) => new Date(a.query_time) - new Date(b.query_time));
+
+        // 提取时间和电量数据
+        const labels = sortedData.map(record => {
+            const date = new Date(record.query_time);
+            return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+        });
+        const electricityValues = sortedData.map(record => parseFloat(record.electricity));
+
+        // 提取消耗电量数据（如果有）
+        const consumptionValues = sortedData.map(record => record.consumption ? parseFloat(record.consumption) : null);
+
+        // 检查是否有消耗数据
+        const hasConsumptionData = consumptionValues.some(value => value !== null);
+
+        // 销毁可能存在的旧图表
+        if (window.electricityChart && typeof window.electricityChart.destroy === 'function') {
+            window.electricityChart.destroy();
+            window.electricityChart = null;
+        }
+
+        // 准备数据集
+        const datasets = [
+            {
+                label: '剩余电量(度)',
+                data: electricityValues,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.2,
+                fill: true,
+                yAxisID: 'y'
+            }
+        ];
+
+        // 如果有消耗数据，添加第二个数据集
+        if (hasConsumptionData) {
+            datasets.push({
+                label: '消耗电量(度)',
+                data: consumptionValues,
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                tension: 0.2,
+                fill: false,
+                yAxisID: 'y1'
+            });
+        }
+
+        // 创建图表配置
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            const label = context.dataset.label || '';
+                            const value = context.raw !== null ? context.raw.toFixed(2) + '度' : '无数据';
+                            return `${label}: ${value}`;
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: '剩余电量(度)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: '查询时间'
+                    }
+                }
+            }
+        };
+
+        // 如果有消耗数据，添加第二个Y轴
+        if (hasConsumptionData) {
+            options.scales.y1 = {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: {
+                    display: true,
+                    text: '消耗电量(度)'
+                },
+                grid: {
+                    drawOnChartArea: false,
+                }
+            };
+        }
+
+        // 检查Chart是否可用
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js库未加载');
+            return;
+        }
+
+        // 创建图表
+        window.electricityChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: options
+        });
+    } catch (error) {
+        console.error('创建电量图表时出错:', error);
     }
 } 
