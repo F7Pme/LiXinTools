@@ -22,7 +22,12 @@ class SessionManager:
                 with open(Config.COOKIE_FILE, "r") as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError):
-                print("警告：Cookie文件异常")
+                try:
+                    from gui.LoginWindow import log_window
+                    if log_window:
+                        log_window.log("Cookie文件异常", "WARNING")
+                except ImportError:
+                    pass
         return {}
 
     def save_cookies(self, user_id):
@@ -35,7 +40,12 @@ class SessionManager:
         }
         with open(Config.COOKIE_FILE, "w") as f:
             json.dump(all_data, f, indent=2)
-        print(f"[√] 账户 {user_id} 的会话已保存")
+        try:
+            from gui.LoginWindow import log_window
+            if log_window:
+                log_window.log(f"账户 {user_id} 的会话已保存", "INFO")
+        except ImportError:
+            pass
 
     def validate_session(self):
         """验证当前会话是否有效"""
@@ -48,27 +58,16 @@ class SessionManager:
         except requests.RequestException:
             return False
     
-    def create_new_session(self):
-        """创建新会话并返回用户ID"""
-        try:
-            username = input("请输入一卡通账号: ").strip()
-            password = input("请输入密码: ").strip()
-            if not (username and password):
-                print("账号密码不能为空")
-                return None
-                
-            if self.login_with_credentials(username, password):
-                self.current_user = username
-                self.save_cookies(username)
-                return username
-            return None
-        except Exception as e:
-            print(f"[!] 登录失败: {str(e)}")
-            return None
-
-        
-    
     def login_with_credentials(self, username, password):
+        """使用用户名和密码登录
+        
+        Args:
+            username (str): 用户名
+            password (str): 密码
+            
+        Returns:
+            bool: 登录是否成功
+        """
         # 清除现有会话数据
         self.session.cookies.clear()
         self.session.headers.clear()
@@ -78,7 +77,6 @@ class SessionManager:
             'X-Device-Info': 'BlackSharkSKW-A01.9.9.81096',
             'Accept': 'application/json, text/plain, */*'
         })
-        original_headers = self.session.headers.copy()
         try:
             # 密码登录获取idToken
             login_params = {
@@ -98,7 +96,12 @@ class SessionManager:
                 raise Exception(f'登录失败: {login_resp.text}')
             
             id_token = login_resp.json()['data']['idToken']
-            print(f"[√] 成功获取id_token: {id_token[:20]}...")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log(f"成功获取id_token: {id_token[:20]}...", "INFO")
+            except ImportError:
+                pass
 
             # CAS跳转获取会话
             service_url = 'https://yktepay.lixin.edu.cn/ykt/sso/login.jsp?targetUrl=base64aHR0cHM6Ly95a3RlcGF5LmxpeGluLmVkdS5jbi95a3QvaDUvaW5kZXg='
@@ -109,15 +112,29 @@ class SessionManager:
             if 'ykt/h5/index' not in resp.url:
                 raise Exception("CAS跳转验证失败")
                 
-            print("[√] 一卡通会话创建成功")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log("一卡通会话创建成功", "SUCCESS")
+            except ImportError:
+                pass
             
             # 初始化学习通查询工具
             self.xxt_query = XxtQuery(self.session)
             
+            # 设置当前用户
+            self.current_user = username
+            
             return True
 
         except Exception as e:
-            raise Exception(f"登录流程异常: {str(e)}")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log(f"登录失败: {str(e)}", "ERROR")
+            except ImportError:
+                pass
+            return False
         finally:
             # 恢复原始headers
             self.session.headers = original_headers

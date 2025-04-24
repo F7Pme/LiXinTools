@@ -36,7 +36,12 @@ class XxtQuery:
         try:
             # 如果已登录，直接返回成功标志
             if self.is_logged_in:
-                print("[√] 已登录学习通，不需要重新登录")
+                try:
+                    from gui.LoginWindow import log_window
+                    if log_window:
+                        log_window.log("已登录学习通，不需要重新登录", "INFO")
+                except ImportError:
+                    pass
                 return "已登录状态"
                 
             # 保存原始headers
@@ -50,18 +55,33 @@ class XxtQuery:
             })
             
             # 第一步：访问学习通SSO入口
-            print("[*] 正在请求学习通SSO入口...")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log("正在请求学习通SSO入口...", "INFO")
+            except ImportError:
+                pass
             resp1 = self.session.get("http://lixin.fysso.chaoxing.com/sso/lixinnew", allow_redirects=True)
             
             # 如果已经是登录状态，可能直接跳转到学习通首页
             if "lixin.fanya.chaoxing.com/portal" in resp1.url:
-                print("[√] 已登录状态，直接获取学习通页面")
+                try:
+                    from gui.LoginWindow import log_window
+                    if log_window:
+                        log_window.log("已登录状态，直接获取学习通页面", "INFO")
+                except ImportError:
+                    pass
                 self.is_logged_in = True  # 设置登录标志
                 return resp1.text
             
             # 第二步：我们可能需要通过CAS登录
             if "cas.paas.lixin.edu.cn/cas/login" in resp1.url:
-                print("[*] 需要CAS登录...")
+                try:
+                    from gui.LoginWindow import log_window
+                    if log_window:
+                        log_window.log("需要CAS登录...", "INFO")
+                except ImportError:
+                    pass
                 
                 # 从当前会话中提取id_token，通常在Cookie中或请求头中
                 id_token = None
@@ -92,12 +112,22 @@ class XxtQuery:
                 return resp2.text
             
             # 如果已经在学习通页面，直接返回内容
-            print("[√] 已成功跳转到学习通")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log("已成功跳转到学习通", "INFO")
+            except ImportError:
+                pass
             self.is_logged_in = True  # 设置登录标志
             return resp1.text
             
         except Exception as e:
-            print(f"[!] 学习通登录失败: {str(e)}")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log(f"学习通登录失败: {str(e)}", "ERROR")
+            except ImportError:
+                pass
             self.is_logged_in = False  # 设置登录失败标志
             return f"<html><body><h1>登录失败</h1><p>{str(e)}</p></body></html>"
         finally:
@@ -115,7 +145,12 @@ class XxtQuery:
             # 设置请求头
             self._set_xxt_headers()
             
-            print("[*] 正在获取学习通课程列表...")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log("正在获取学习通课程列表...", "INFO")
+            except ImportError:
+                pass
             
             # 检查登录状态，如果未登录则进行登录
             if not self.is_logged_in:
@@ -148,7 +183,12 @@ class XxtQuery:
             return courses, resp.text
             
         except Exception as e:
-            print(f"[!] 获取学习通课程列表失败: {str(e)}")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log(f"获取学习通课程列表失败: {str(e)}", "ERROR")
+            except ImportError:
+                pass
             return [], f"<html><body><h1>获取课程列表失败</h1><p>{str(e)}</p></body></html>"
         finally:
             # 恢复原始headers
@@ -165,7 +205,12 @@ class XxtQuery:
             # 设置请求头
             self._set_xxt_headers()
             
-            print("[*] 正在获取学习通作业和通知列表...")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log("正在获取学习通作业和通知列表...", "INFO")
+            except ImportError:
+                pass
             
             # 检查登录状态，如果未登录则进行登录
             if not self.is_logged_in:
@@ -222,7 +267,12 @@ class XxtQuery:
             return notices, resp.text
             
         except Exception as e:
-            print(f"[!] 获取学习通通知列表失败: {str(e)}")
+            try:
+                from gui.LoginWindow import log_window
+                if log_window:
+                    log_window.log(f"获取学习通通知列表失败: {str(e)}", "ERROR")
+            except ImportError:
+                pass
             return [], f"{{'error': '{str(e)}'}}"
         finally:
             # 恢复原始headers

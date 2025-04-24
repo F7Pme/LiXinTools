@@ -65,8 +65,6 @@ build_exe.bat
 - `requirements.txt`: 项目依赖库列表
 - `core/`: 核心功能模块
   - `auth.py`: 认证和会话管理
-  - `MainApp.py`: 主应用程序逻辑
-  - `display.py`: 显示相关功能
   - `__init__.py`: 包初始化文件
 - `gui/`: 图形用户界面组件
   - `BaseWindow.py`: 窗口基类
