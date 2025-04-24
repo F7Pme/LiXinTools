@@ -139,6 +139,33 @@ body {
     font-weight: bold;
 }
 
+/* 历史查询选择器样式 */
+#history-selector {
+    min-width: 200px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-color: #dee2e6;
+    font-size: 0.9rem;
+}
+
+#latest-query-time.text-warning {
+    font-weight: bold;
+    animation: flash 2s 1;
+}
+
+@keyframes flash {
+
+    0%,
+    50%,
+    100% {
+        opacity: 1;
+    }
+
+    25%,
+    75% {
+        opacity: 0.5;
+    }
+}
+
 /* 排序功能样式 */
 .sortable {
     cursor: pointer;

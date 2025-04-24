@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 获取楼栋数据
     fetchBuildingData();
 
+    // 获取历史电量查询时间点列表
+    fetchHistoryTimes();
+
     // 搜索功能
     const searchButton = document.getElementById('search-button');
     const searchInput = document.getElementById('room-search');
@@ -29,8 +32,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // 历史电量查询功能
+    const historySelector = document.getElementById('history-selector');
+    historySelector.addEventListener('change', () => {
+        const selectedValue = historySelector.value;
+        if (selectedValue === 'latest') {
+            fetchElectricityData();
+        } else {
+            fetchHistoryData(selectedValue);
+        }
+    });
+
     // 添加表格排序功能
     setupTableSorting();
+
+    // 添加调试按钮功能
+    const debugBtn = document.getElementById('debug-btn');
+    if (debugBtn) {
+        debugBtn.addEventListener('click', showDebugModal);
+    }
+
+    // 添加修复数据按钮功能
+    const fixDataBtn = document.getElementById('fix-data-btn');
+    if (fixDataBtn) {
+        fixDataBtn.addEventListener('click', fixHistoryData);
+    }
 });
 
 // 设置表格排序功能
@@ -198,8 +224,7 @@ async function fetchLatestQueryTime() {
         const response = await fetch('/api/latest_query_time');
         const data = await response.json();
 
-        const timeElement = document.getElementById('latest-query-time');
-        timeElement.textContent = `最新查询时间: ${data.query_time}`;
+        updateDisplayTime(data.query_time);
     } catch (error) {
         console.error('获取查询时间出错:', error);
         const timeElement = document.getElementById('latest-query-time');
@@ -212,6 +237,9 @@ async function fetchElectricityData() {
     try {
         const response = await fetch('/api/electricity_data');
         const data = await response.json();
+
+        // 更新时间显示为最新查询时间
+        updateDisplayTime(data.query_time);
 
         if (data.data && data.data.length > 0) {
             // 存储原始数据用于搜索和排序
@@ -491,6 +519,133 @@ async function fetchBuildingData() {
     }
 }
 
+// 获取历史电量查询时间点
+async function fetchHistoryTimes() {
+    try {
+        const response = await fetch('/api/history_times');
+        const data = await response.json();
+
+        const historySelector = document.getElementById('history-selector');
+
+        if (data.history_times && data.history_times.length > 0) {
+            // 遍历每个历史时间点，添加到下拉选择器中
+            data.history_times.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.column_name;
+                option.textContent = item.query_time + (item.description ? ` (${item.description})` : '');
+                historySelector.appendChild(option);
+            });
+        } else {
+            // 如果没有历史数据，添加一个禁用的提示选项
+            const option = document.createElement('option');
+            option.disabled = true;
+            option.textContent = '暂无历史数据';
+            historySelector.appendChild(option);
+        }
+    } catch (error) {
+        console.error('获取历史时间点出错:', error);
+        // 添加一个错误提示选项
+        const historySelector = document.getElementById('history-selector');
+        const option = document.createElement('option');
+        option.disabled = true;
+        option.textContent = '加载失败';
+        historySelector.appendChild(option);
+    }
+}
+
+// 获取指定时间点的历史电量数据
+async function fetchHistoryData(columnName) {
+    try {
+        // 更新UI以显示加载中状态
+        const roomDataElement = document.getElementById('room-data');
+        roomDataElement.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-3">正在加载历史数据...</p>
+                </td>
+            </tr>
+        `;
+
+        // 请求历史数据
+        const response = await fetch(`/api/history_data/${columnName}`);
+        const data = await response.json();
+
+        // 添加调试日志，查看API返回的数据结构
+        console.log("历史数据API返回:", data);
+
+        // 检查是否有错误
+        if (data.error) {
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                        <p class="mt-3">获取历史数据错误: ${data.error}</p>
+                    </td>
+                </tr>
+            `;
+            // 显示错误信息而不是undefined
+            updateDisplayTime('获取失败', true);
+            return;
+        }
+
+        // 确保query_time存在，否则使用默认值
+        const queryTime = data.query_time || columnName.substring(2);
+
+        // 更新时间显示
+        updateDisplayTime(queryTime, true);
+
+        if (data.data && data.data.length > 0) {
+            // 存储数据用于搜索和排序
+            window.originalRoomData = data.data;
+
+            // 应用当前排序设置
+            const sortedData = sortRoomData([...window.originalRoomData]);
+
+            // 显示排序后的数据
+            displayRoomData(sortedData);
+        } else {
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <i class="bi bi-exclamation-circle text-warning" style="font-size: 2rem;"></i>
+                        <p class="mt-3">该时间点没有电量数据</p>
+                        <p class="small text-muted">列名: ${columnName}</p>
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('获取历史电量数据出错:', error);
+        const roomDataElement = document.getElementById('room-data');
+        roomDataElement.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-5">
+                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                    <p class="mt-3">获取历史数据失败: ${error.message}</p>
+                </td>
+            </tr>
+        `;
+
+        // 显示错误信息而不是undefined
+        updateDisplayTime('获取失败', true);
+    }
+}
+
+// 更新显示的时间信息
+function updateDisplayTime(queryTime, isHistorical = false) {
+    const timeElement = document.getElementById('latest-query-time');
+    if (isHistorical) {
+        timeElement.textContent = `历史数据: ${queryTime}`;
+        timeElement.classList.add('text-warning');
+    } else {
+        timeElement.textContent = `最新查询时间: ${queryTime}`;
+        timeElement.classList.remove('text-warning');
+    }
+}
+
 // 搜索房间
 function searchRooms() {
     const searchInput = document.getElementById('room-search');
@@ -533,6 +688,361 @@ function searchRooms() {
                     <p class="mt-3">未找到匹配 "${searchTerm}" 的房间</p>
                 </td>
             </tr>
+        `;
+    }
+}
+
+// 修复历史数据问题
+async function fixHistoryData() {
+    try {
+        // 修改按钮状态为加载中
+        const fixDataBtn = document.getElementById('fix-data-btn');
+        const originalText = fixDataBtn.textContent;
+        fixDataBtn.disabled = true;
+        fixDataBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 修复中...`;
+
+        // 添加状态提示
+        const diagnosisInfo = document.getElementById('diagnosis-info');
+        diagnosisInfo.innerHTML = `
+            <div class="alert alert-info">
+                <h5 class="alert-heading">正在修复数据问题...</h5>
+                <p>请稍候，系统正在尝试修复历史数据问题。</p>
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" aria-valuenow="100" aria-valuemin="0" 
+                         aria-valuemax="100" style="width: 100%"></div>
+                </div>
+            </div>
+        `;
+
+        // 调用修复API
+        const response = await fetch('/api/fix_history_data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        // 恢复按钮状态
+        fixDataBtn.disabled = false;
+        fixDataBtn.textContent = originalText;
+
+        // 显示修复结果
+        if (result.success) {
+            diagnosisInfo.innerHTML = `
+                <div class="alert alert-success">
+                    <h5 class="alert-heading">修复成功!</h5>
+                    <p>${result.message}</p>
+                    <hr>
+                    <p class="mb-0">建议刷新页面或重新启动应用以应用修复。</p>
+                </div>
+                <button class="btn btn-primary mt-2" onclick="location.reload()">刷新页面</button>
+            `;
+
+            // 重新加载历史时间点
+            setTimeout(() => {
+                fetchHistoryTimes();
+            }, 1000);
+        } else {
+            let errorDetails = '';
+            if (result.errors && result.errors.length > 0) {
+                errorDetails = `
+                    <hr>
+                    <p>错误详情:</p>
+                    <ul>
+                        ${result.errors.map(err => `<li>${err}</li>`).join('')}
+                    </ul>
+                `;
+            }
+
+            diagnosisInfo.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5 class="alert-heading">修复失败</h5>
+                    <p>${result.message}</p>
+                    ${errorDetails}
+                    <hr>
+                    <p class="mb-0">请检查数据库结构和权限，或尝试手动修复。</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        // 处理异常
+        console.error('修复数据出错:', error);
+
+        // 恢复按钮状态
+        const fixDataBtn = document.getElementById('fix-data-btn');
+        fixDataBtn.disabled = false;
+        fixDataBtn.textContent = '修复数据';
+
+        // 显示错误信息
+        const diagnosisInfo = document.getElementById('diagnosis-info');
+        diagnosisInfo.innerHTML = `
+            <div class="alert alert-danger">
+                <h5 class="alert-heading">修复过程出错</h5>
+                <p>错误信息: ${error.message}</p>
+                <hr>
+                <p class="mb-0">请检查网络连接或服务器日志。</p>
+            </div>
+        `;
+    }
+}
+
+// 显示调试模态框
+function showDebugModal() {
+    // 获取模态框元素
+    const debugModal = new bootstrap.Modal(document.getElementById('debugModal'));
+    debugModal.show();
+
+    // 显示加载状态
+    document.getElementById('debug-loading').style.display = 'block';
+    document.getElementById('debug-content').style.display = 'none';
+
+    // 获取数据库调试信息
+    fetchDebugInfo();
+}
+
+// 获取数据库调试信息
+async function fetchDebugInfo() {
+    try {
+        const response = await fetch('/api/debug/database_info');
+        const data = await response.json();
+
+        // 隐藏加载状态，显示内容
+        document.getElementById('debug-loading').style.display = 'none';
+        document.getElementById('debug-content').style.display = 'block';
+
+        // 填充表信息
+        const tablesInfo = document.getElementById('tables-info');
+        if (data.tables && data.tables.length > 0) {
+            tablesInfo.innerHTML = `
+                <div class="alert alert-info">
+                    <p>数据库中的表 (${data.tables.length} 个):</p>
+                    <ul class="mb-0">
+                        ${data.tables.map(table => `<li>${table}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            tablesInfo.innerHTML = '<div class="alert alert-warning">未发现数据表</div>';
+        }
+
+        // 填充电量历史表结构信息
+        const columnsInfo = document.getElementById('columns-info');
+        if (data.electricity_history_columns) {
+            const regularColumns = data.electricity_history_columns.filter(col => !col.startsWith('e_'));
+            const dynamicColumns = data.electricity_history_columns.filter(col => col.startsWith('e_'));
+
+            columnsInfo.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header">基本列 (${regularColumns.length})</div>
+                            <div class="card-body">
+                                <ul class="list-group">
+                                    ${regularColumns.map(col => `<li class="list-group-item">${col}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">电量数据列 (${dynamicColumns.length})</div>
+                            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                                <ul class="list-group">
+                                    ${dynamicColumns.map(col => {
+                const count = data.dynamic_column_counts ? data.dynamic_column_counts[col] : '未知';
+                return `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                            ${col}
+                                            <span class="badge bg-primary rounded-pill">${count} 条数据</span>
+                                        </li>`;
+            }).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-info mt-3">
+                    <p>表中总共有 ${data.electricity_history_count || '未知'} 条记录</p>
+                </div>
+            `;
+        } else {
+            columnsInfo.innerHTML = '<div class="alert alert-warning">未发现电量历史表或无法获取列信息</div>';
+        }
+
+        // 填充查询历史信息
+        const queriesInfo = document.getElementById('queries-info');
+        if (data.sample_data && data.sample_data.query_history) {
+            const queryHistory = data.sample_data.query_history;
+            queriesInfo.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>查询时间</th>
+                                <th>描述</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${queryHistory.map(query => `
+                                <tr>
+                                    <td>${query.id}</td>
+                                    <td>${query.query_time}</td>
+                                    <td>${query.description || ''}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } else {
+            queriesInfo.innerHTML = '<div class="alert alert-warning">未发现查询历史数据</div>';
+        }
+
+        // 填充示例数据信息
+        const dataInfo = document.getElementById('data-info');
+        if (data.sample_data && data.sample_data.electricity_history) {
+            const sampleData = data.sample_data.electricity_history;
+            if (sampleData.length > 0) {
+                const firstRow = sampleData[0];
+                const allColumns = Object.keys(firstRow);
+
+                dataInfo.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    ${allColumns.map(col => `<th>${col}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sampleData.map(row => `
+                                    <tr>
+                                        ${allColumns.map(col => `<td>${row[col] !== null ? row[col] : '空'}</td>`).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                dataInfo.innerHTML = '<div class="alert alert-warning">电量历史表中没有数据</div>';
+            }
+        } else {
+            dataInfo.innerHTML = '<div class="alert alert-warning">未能获取示例数据</div>';
+        }
+
+        // 填充问题诊断信息
+        const diagnosisInfo = document.getElementById('diagnosis-info');
+        diagnosisInfo.innerHTML = '';
+
+        // 检查是否存在查询历史表
+        if (!data.tables || !data.tables.includes('query_history')) {
+            diagnosisInfo.innerHTML += `
+                <div class="alert alert-danger mb-3">
+                    <h5 class="alert-heading">问题：缺少查询历史表</h5>
+                    <p>数据库中不存在 query_history 表，这是存储查询时间点的必要表。</p>
+                    <hr>
+                    <p class="mb-0">解决方案：请确保已经通过GUI界面执行过"查询所有宿舍"操作，这将自动创建表结构。</p>
+                </div>
+            `;
+        }
+
+        // 检查是否存在电量历史表
+        if (!data.tables || !data.tables.includes('electricity_history')) {
+            diagnosisInfo.innerHTML += `
+                <div class="alert alert-danger mb-3">
+                    <h5 class="alert-heading">问题：缺少电量历史表</h5>
+                    <p>数据库中不存在 electricity_history 表，这是存储电量数据的必要表。</p>
+                    <hr>
+                    <p class="mb-0">解决方案：请确保已经通过GUI界面执行过"查询所有宿舍"操作，这将自动创建表结构。</p>
+                </div>
+            `;
+        }
+
+        // 检查查询历史表中是否有数据
+        if (data.sample_data && data.sample_data.query_history && data.sample_data.query_history.length === 0) {
+            diagnosisInfo.innerHTML += `
+                <div class="alert alert-warning mb-3">
+                    <h5 class="alert-heading">问题：查询历史表为空</h5>
+                    <p>查询历史表中没有数据，这意味着没有记录电量查询的时间点。</p>
+                    <hr>
+                    <p class="mb-0">解决方案：请通过GUI界面执行"查询所有宿舍"操作，这将记录查询时间点。</p>
+                </div>
+            `;
+        }
+
+        // 检查电量历史表中的动态列
+        if (data.dynamic_columns && data.dynamic_columns.length === 0) {
+            diagnosisInfo.innerHTML += `
+                <div class="alert alert-warning mb-3">
+                    <h5 class="alert-heading">问题：电量历史表缺少电量数据列</h5>
+                    <p>电量历史表中没有任何以"e_"开头的动态列，这些列用于存储不同时间点的电量数据。</p>
+                    <hr>
+                    <p class="mb-0">解决方案：请确保在通过GUI界面执行"查询所有宿舍"后，电量数据被正确保存。</p>
+                </div>
+            `;
+        }
+
+        // 检查最新查询对应的列是否存在
+        if (data.expected_column && !data.column_exists) {
+            diagnosisInfo.innerHTML += `
+                <div class="alert alert-danger mb-3">
+                    <h5 class="alert-heading">问题：数据列不匹配</h5>
+                    <p>最新查询时间对应的列名 ${data.expected_column} 在电量历史表中不存在。</p>
+                    <hr>
+                    <p class="mb-0">解决方案：检查查询历史表和电量历史表的同步问题，可能是由于时间格式转换错误导致的。</p>
+                </div>
+            `;
+        }
+
+        // 检查是否所有的动态列都没有数据
+        if (data.dynamic_column_counts) {
+            const allEmpty = Object.values(data.dynamic_column_counts).every(count => count === 0);
+            if (allEmpty && Object.keys(data.dynamic_column_counts).length > 0) {
+                diagnosisInfo.innerHTML += `
+                    <div class="alert alert-danger mb-3">
+                        <h5 class="alert-heading">问题：所有电量数据列都为空</h5>
+                        <p>所有电量数据列都不包含任何非空值，这可能是由于数据保存失败导致的。</p>
+                        <hr>
+                        <p class="mb-0">解决方案：检查数据保存过程中的错误，或尝试重新执行"查询所有宿舍"操作。</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 如果没有发现任何问题
+        if (diagnosisInfo.innerHTML === '') {
+            diagnosisInfo.innerHTML = `
+                <div class="alert alert-success">
+                    <h5 class="alert-heading">未发现明显问题</h5>
+                    <p>数据库结构和数据看起来是正常的。如果界面仍然显示"该时间点没有电量数据"，可能是因为：</p>
+                    <ul>
+                        <li>选择的时间点确实没有电量数据</li>
+                        <li>数据格式转换问题</li>
+                        <li>前端代码错误</li>
+                    </ul>
+                    <hr>
+                    <p class="mb-0">建议：请尝试重新执行一次"查询所有宿舍"操作，然后刷新页面后重试。</p>
+                </div>
+            `;
+        }
+
+    } catch (error) {
+        console.error('获取调试信息出错:', error);
+        document.getElementById('debug-loading').style.display = 'none';
+        document.getElementById('debug-content').style.display = 'block';
+
+        // 显示错误信息
+        document.getElementById('diagnosis-info').innerHTML = `
+            <div class="alert alert-danger">
+                <h5 class="alert-heading">获取调试信息失败</h5>
+                <p>错误信息: ${error.message}</p>
+                <hr>
+                <p class="mb-0">请检查服务器日志或尝试重启应用。</p>
+            </div>
         `;
     }
 } 
