@@ -130,75 +130,89 @@ build_exe.bat
 
 - 服务器：京东云轻量云主机 (117.72.194.27)
 - 操作系统：Ubuntu
-- CPU: 2核 内存: 2GB
-- 部署目录：/var/www/LiXinTools
-- Git仓库：/opt/LiXinTools
+- 部署架构：Flask应用(5000端口) + MySQL数据库 + Nginx反向代理
 
-## 部署架构
+## 核心部署步骤
 
-- Web服务：Flask应用 (端口5000)
-- 数据库：MySQL (electricity_data)
-- 定时任务：crontab (每30分钟执行一次批量查询)
-- 服务管理：systemd
-
-## 初始设置步骤
-
-1. 更新系统并安装必要软件包：
+1. **系统准备**
 ```bash
+# 安装必要软件包
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y git python3 python3-pip python3-venv mysql-server libmysqlclient-dev build-essential libssl-dev libffi-dev python3-dev cargo rustc
+sudo apt install -y git python3 python3-pip python3-venv mysql-server nginx
 ```
 
-2. 创建Git仓库：
+2. **代码部署**
 ```bash
-mkdir -p /opt/LiXinTools
-cd /opt/LiXinTools
+# 创建Git仓库和工作目录
+mkdir -p /opt/LiXinTools && cd /opt/LiXinTools
 git init --bare
-```
 
-3. 设置Git钩子：
-```bash
+# 设置Git钩子
 cat > /opt/LiXinTools/hooks/post-receive << 'EOL'
 #!/bin/bash
 GIT_WORK_TREE=/var/www/LiXinTools git checkout -f main
 echo "部署已完成!"
 EOL
 chmod +x /opt/LiXinTools/hooks/post-receive
-```
 
-4. 创建工作目录：
-```bash
+# 创建工作目录
 mkdir -p /var/www/LiXinTools
 ```
 
-5. 设置MySQL数据库：
+3. **数据库配置**
 ```bash
+# 创建数据库和用户
 sudo mysql -e "CREATE DATABASE electricity_data;"
 sudo mysql -e "CREATE USER 'elecuser'@'localhost' IDENTIFIED WITH mysql_native_password BY '123456';"
 sudo mysql -e "GRANT ALL PRIVILEGES ON electricity_data.* TO 'elecuser'@'localhost';"
 sudo mysql -e "FLUSH PRIVILEGES;"
 ```
 
-6. 创建Python虚拟环境：
+4. **Python环境设置**
 ```bash
+# 创建虚拟环境并安装依赖
 cd /var/www/LiXinTools
 python3 -m venv venv
 source venv/bin/activate
-pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 pip install flask pymysql beautifulsoup4 requests cryptography
 ```
 
-7. 设置定时任务：
+5. **定时任务配置**
 ```bash
+# 设置30分钟查询一次
 crontab -e
-# 添加以下行：
-*/30 * * * * cd /var/www/LiXinTools && /var/www/LiXinTools/venv/bin/python /var/www/LiXinTools/scripts/query_all_rooms.py >> /var/log/electricity_query.log 2>&1
+# 添加: */30 * * * * cd /var/www/LiXinTools && ./venv/bin/python ./scripts/query_all_rooms.py >> /var/log/electricity_query.log 2>&1
 ```
 
-8. 创建systemd服务：
+6. **Web服务配置**
 ```bash
+# 创建systemd服务
 sudo nano /etc/systemd/system/lixintools-web.service
-# 添加以下内容：
+# 添加服务配置（见下方服务配置内容）
+
+# 启用服务
+sudo systemctl daemon-reload
+sudo systemctl enable lixintools-web
+sudo systemctl start lixintools-web
+```
+
+7. **Nginx配置**
+```bash
+# 创建网站配置
+sudo nano /etc/nginx/sites-available/lixintools
+# 添加Nginx配置（见下方Nginx配置内容）
+
+# 启用站点
+sudo ln -s /etc/nginx/sites-available/lixintools /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+sudo ufw allow 'Nginx Full'
+```
+
+## 常用配置文件
+
+### systemd服务配置
+```
 [Unit]
 Description=LiXinTools Web Application
 After=network.target
@@ -212,134 +226,48 @@ RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
-
-# 启用并启动服务
-sudo systemctl daemon-reload
-sudo systemctl enable lixintools-web
-sudo systemctl start lixintools-web
 ```
 
-9. 开放防火墙端口：
-```bash
-sudo ufw allow 5000/tcp
+### Nginx配置
+```
+server {
+    listen 80;
+    server_name xxx;
+
+    location /static {
+        alias /var/www/LiXinTools/Web/static;
+        expires 30d;
+    }
+
+    location / {
+        proxy_pass xxx;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
 ```
 
-10. 创建静态文件符号链接：
+## 常用维护命令
+
 ```bash
-cd /var/www/LiXinTools/Web/static
-ln -s ../../gui/pic pic
-```
-
-## 常用命令
-
-### 服务管理
-```bash
-# 启动Web服务
-sudo systemctl start lixintools-web
-
-# 停止Web服务
-sudo systemctl stop lixintools-web
-
-# 重启Web服务
-sudo systemctl restart lixintools-web
-
-# 查看服务状态
+# 服务管理
+sudo systemctl start/stop/restart lixintools-web
 sudo systemctl status lixintools-web
 
-# 查看服务日志
-sudo journalctl -u lixintools-web
-
-# 手动启动Web服务(不使用systemd)
-cd /var/www/LiXinTools
-source venv/bin/activate
-python -m Web.app --host=0.0.0.0
-```
-
-### 数据库管理
-```bash
-# 连接到MySQL
+# 数据库操作
 mysql -u elecuser -p123456 electricity_data
+mysqldump -u elecuser -p123456 electricity_data > backup.sql
 
-# 备份数据库
-mysqldump -u elecuser -p123456 electricity_data > /var/backups/electricity_data_$(date +%Y%m%d).sql
-
-# 恢复数据库
-mysql -u elecuser -p123456 electricity_data < /var/backups/electricity_data_20250425.sql
-
-# 初始化数据库表
-cd /var/www/LiXinTools
-source venv/bin/activate
-python -c "from utils.query_electricity import ElectricityQuery; query = ElectricityQuery(); query.db_host = 'localhost'; query.db_user = 'elecuser'; query.db_password = '123456'; print(query.init_database())"
-```
-
-### 电量查询
-```bash
-# 手动执行一次全量查询
-cd /var/www/LiXinTools
-source venv/bin/activate
+# 手动执行查询
+cd /var/www/LiXinTools && source venv/bin/activate
 python scripts/query_all_rooms.py
 
-# 查看定时任务日志
+# 查看日志
 tail -f /var/log/electricity_query.log
-```
+journalctl -u lixintools-web
 
-### Git操作
-```bash
-# 在本地添加远程仓库
+# Git操作
 git remote add jdcloud root@117.72.194.27:/opt/LiXinTools
-
-# 推送到服务器
 git push jdcloud main
 ```
-
-### 文件操作
-```bash
-# 查看Web应用日志
-cat /var/www/LiXinTools/web_app.log
-
-# 查看目录结构
-ls -la /var/www/LiXinTools
-
-# 编辑配置文件
-nano /etc/systemd/system/lixintools-web.service
-```
-
-## 故障排除
-
-1. 端口被占用：
-```bash
-# 查找占用5000端口的进程
-netstat -tulpn | grep 5000
-# 或者
-lsof -i :5000
-# 杀死进程
-kill <进程ID>
-```
-
-2. 数据库连接失败：
-```bash
-# 检查MySQL是否运行
-sudo systemctl status mysql
-# 重启MySQL
-sudo systemctl restart mysql
-# 验证用户权限
-sudo mysql -e "SHOW GRANTS FOR 'elecuser'@'localhost';"
-```
-
-3. 网站无法访问：
-```bash
-# 检查防火墙
-sudo ufw status
-# 如果防火墙启用，确保5000端口开放
-sudo ufw allow 5000/tcp
-```
-
-4. 定时任务不执行：
-```bash
-# 检查crontab是否正确设置
-crontab -l
-# 检查cron服务是否运行
-sudo systemctl status cron
-# 查看定时任务日志
-tail -f /var/log/syslog | grep CRON
-``` 
