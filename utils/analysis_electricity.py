@@ -69,7 +69,7 @@ class ElectricityAnalysis:
                 cursor.execute("""
                     SELECT building, room, electricity 
                     FROM electricity_records 
-                    WHERE DATE_FORMAT(query_time, '%Y%m%d%H%M%S') = %s
+                    WHERE DATE_FORMAT(query_time, '%%Y%%m%%d%%H%%i%%S') = %s
                 """, (time_id,))
                 results = cursor.fetchall()
                 
