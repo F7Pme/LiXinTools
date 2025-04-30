@@ -58,39 +58,73 @@ class ElectricityAnalysis:
                 return {}, "未找到查询记录"
             
             latest_time = latest_time[0]
+            formatted_time = latest_time.strftime('%Y-%m-%d %H:%M:%S')
             
-            # 2. 找到对应的列名
-            column_name = f"e_{latest_time.strftime('%Y%m%d%H%M%S')}"
-            
-            # 3. 检查列是否存在
-            cursor.execute(f"SHOW COLUMNS FROM electricity_history LIKE '{column_name}'")
-            if not cursor.fetchone():
+            # 检查新表是否存在
+            cursor.execute("SHOW TABLES LIKE 'electricity_records'")
+            if cursor.fetchone():
+                # 使用新表结构 - 根据最新时间查询
+                time_id = latest_time.strftime('%Y%m%d%H%M%S')
+                
+                cursor.execute("""
+                    SELECT building, room, electricity 
+                    FROM electricity_records 
+                    WHERE DATE_FORMAT(query_time, '%Y%m%d%H%M%S') = %s
+                """, (time_id,))
+                results = cursor.fetchall()
+                
                 cursor.close()
                 conn.close()
-                return {}, f"未找到对应的数据列: {column_name}"
-            
-            # 4. 查询所有电量数据
-            cursor.execute(f"SELECT building, room, {column_name} FROM electricity_history WHERE {column_name} IS NOT NULL")
-            results = cursor.fetchall()
-            
-            cursor.close()
-            conn.close()
-            
-            # 5. 整理数据结构
-            data = {}
-            for row in results:
-                building, room, electricity = row
-                if building not in data:
-                    data[building] = {}
                 
-                # 尝试将电量转换为浮点数，如果失败则跳过
-                try:
-                    electricity_value = float(electricity)
-                    data[building][room] = electricity_value
-                except (ValueError, TypeError):
-                    continue
-            
-            return data, latest_time.strftime('%Y-%m-%d %H:%M:%S')
+                # 整理数据结构
+                data = {}
+                for row in results:
+                    building, room, electricity = row
+                    if building not in data:
+                        data[building] = {}
+                    
+                    # 尝试将电量转换为浮点数，如果失败则跳过
+                    try:
+                        electricity_value = float(electricity)
+                        data[building][room] = electricity_value
+                    except (ValueError, TypeError):
+                        continue
+                
+                return data, formatted_time
+            else:
+                # 使用旧表结构 - 保持原有逻辑
+                # 2. 找到对应的列名
+                column_name = f"e_{latest_time.strftime('%Y%m%d%H%M%S')}"
+                
+                # 3. 检查列是否存在
+                cursor.execute(f"SHOW COLUMNS FROM electricity_history LIKE '{column_name}'")
+                if not cursor.fetchone():
+                    cursor.close()
+                    conn.close()
+                    return {}, f"未找到对应的数据列: {column_name}"
+                
+                # 4. 查询所有电量数据
+                cursor.execute(f"SELECT building, room, {column_name} FROM electricity_history WHERE {column_name} IS NOT NULL")
+                results = cursor.fetchall()
+                
+                cursor.close()
+                conn.close()
+                
+                # 5. 整理数据结构
+                data = {}
+                for row in results:
+                    building, room, electricity = row
+                    if building not in data:
+                        data[building] = {}
+                    
+                    # 尝试将电量转换为浮点数，如果失败则跳过
+                    try:
+                        electricity_value = float(electricity)
+                        data[building][room] = electricity_value
+                    except (ValueError, TypeError):
+                        continue
+                
+                return data, formatted_time
         
         except Exception as e:
             print(f"获取最新数据失败: {str(e)}")
