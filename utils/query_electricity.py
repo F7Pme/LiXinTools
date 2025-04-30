@@ -271,72 +271,64 @@ class ElectricityQuery:
             return False
             
     def save_batch_to_history_database(self, query_time, results):
-        """将批量查询结果作为新列保存到历史数据库"""
+        """将批量查询结果保存到历史数据库"""
         try:
             conn = pymysql.connect(host=self.db_host, user=self.db_user, password=self.db_password, database='electricity_data')
             cursor = conn.cursor()
             
             # 1. 将查询时间添加到查询历史表
-            try:
-                description = f"批量查询 {datetime.datetime.strptime(query_time, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M')}"
-                cursor.execute("INSERT INTO query_history (query_time, description) VALUES (%s, %s)", 
-                              (query_time, description))
+            description = f"批量查询 {datetime.datetime.strptime(query_time, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M')}"
+            cursor.execute("INSERT INTO query_history (query_time, description) VALUES (%s, %s)", 
+                          (query_time, description))
+            
+            # 2. 处理结果并插入新表
+            if isinstance(results, dict) and 'data' in results:
+                data = results['data']
+            else:
+                data = results
                 
-                # 2. 检查electricity_history表中是否存在以查询时间命名的列
-                column_name = f"e_{datetime.datetime.strptime(query_time, '%Y-%m-%d %H:%M:%S').strftime('%Y%m%d%H%M%S')}"
-                
-                # 检查列是否存在
-                cursor.execute(f"SHOW COLUMNS FROM electricity_history LIKE '{column_name}'")
-                column_exists = cursor.fetchone()
-                
-                # 如果列不存在，添加新列
-                if not column_exists:
-                    cursor.execute(f"ALTER TABLE electricity_history ADD COLUMN {column_name} VARCHAR(50)")
-                
-                # 3. 遍历结果并更新数据
-                if isinstance(results, dict) and 'data' in results:
-                    data = results['data']
-                else:
-                    data = results
-                    
-                for building, rooms in data.items():
-                    for room, electricity in rooms.items():
-                        # 清洗电量数据
-                        if isinstance(electricity, str):
-                            clean_electricity = electricity.replace('度', '').strip()
-                            # 检查是否为错误消息
-                            if "查询失败" in clean_electricity or "查询异常" in clean_electricity or "处理错误" in clean_electricity:
-                                clean_electricity = "NULL"  # 使用NULL表示查询失败
-                        else:
-                            clean_electricity = "NULL"
-                            
-                        # 先检查房间是否存在于表中
-                        cursor.execute("SELECT id FROM electricity_history WHERE building = %s AND room = %s", 
-                                     (building, room))
-                        room_exists = cursor.fetchone()
+            for building, rooms in data.items():
+                for room, electricity in rooms.items():
+                    # 清洗电量数据
+                    if isinstance(electricity, str):
+                        clean_electricity = electricity.replace('度', '').strip()
+                        # 检查是否为错误消息
+                        if "查询失败" in clean_electricity or "查询异常" in clean_electricity or "处理错误" in clean_electricity:
+                            continue  # 跳过保存错误数据
+                    else:
+                        continue
                         
-                        if room_exists:
-                            # 更新现有房间的电量值
-                            if clean_electricity != "NULL":
-                                cursor.execute(f"UPDATE electricity_history SET {column_name} = %s WHERE building = %s AND room = %s", 
-                                             (clean_electricity, building, room))
-                        else:
-                            # 插入新房间记录
-                            if clean_electricity != "NULL":
-                                cursor.execute(f"INSERT INTO electricity_history (building, room, {column_name}) VALUES (%s, %s, %s)", 
-                                             (building, room, clean_electricity))
-                            else:
-                                cursor.execute(f"INSERT INTO electricity_history (building, room) VALUES (%s, %s)", 
-                                             (building, room))
-                
-                conn.commit()
-                return True
-            except Exception as inner_e:
-                conn.rollback()
-                print(f"保存批量查询结果到历史数据库失败: {str(inner_e)}")
-                return False
+                    # 获取上次电量值以计算消耗量
+                    cursor.execute("""
+                        SELECT electricity FROM electricity_records 
+                        WHERE building = %s AND room = %s
+                        ORDER BY query_time DESC LIMIT 1
+                    """, (building, room))
+                    
+                    consumption = None
+                    last_record = cursor.fetchone()
+                    if last_record and last_record[0]:
+                        try:
+                            prev_electricity = float(last_record[0])
+                            curr_electricity = float(clean_electricity)
+                            
+                            # 只在前一个电量值大于当前电量值时才计算消耗
+                            if prev_electricity > curr_electricity:
+                                consumption = prev_electricity - curr_electricity
+                        except:
+                            pass
+                    
+                    # 插入新记录
+                    cursor.execute("""
+                        INSERT INTO electricity_records 
+                        (building, room, query_time, electricity, consumption)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (building, room, query_time, clean_electricity, consumption))
+                    
+            conn.commit()
+            return True
         except Exception as e:
-            print(f"连接数据库失败: {str(e)}")
+            print(f"保存批量查询结果到历史数据库失败: {str(e)}")
             return False
         finally:
             if 'cursor' in locals() and cursor:
