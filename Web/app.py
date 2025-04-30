@@ -644,8 +644,9 @@ def fix_history_data():
                     continue
                     
             try:
-                # 尝试创建或更新列
-                cursor.execute(f"ALTER TABLE electricity_history ADD COLUMN IF NOT EXISTS {column_name} VARCHAR(50)")
+                # 修复：不使用IF NOT EXISTS语法，直接添加列
+                # 由于我们已经检查了列是否存在，所以可以安全地使用ADD COLUMN
+                cursor.execute(f"ALTER TABLE electricity_history ADD COLUMN {column_name} VARCHAR(50)")
                 fixed_columns += 1
             except Exception as e:
                 errors.append(f"修复列 {column_name} 时出错: {str(e)}")
