@@ -14,7 +14,7 @@ app = Flask(__name__)
 # 数据库配置
 DB_CONFIG = {
     'host': 'localhost',
-    'user': 'root',
+    'user': 'elecuser',
     'password': '123456',
     'database': 'electricity_data'
 }
@@ -576,4 +576,4 @@ def get_room_history(building, room):
         })
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(debug=True, host='0.0.0.0') 
