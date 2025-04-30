@@ -228,11 +228,20 @@ def get_history_data(time_id):
                 
                 formatted_time = f"{year}-{month}-{day} {hour}:{minute}:{second}"
                 
-                # 获取该时间点的查询记录
+                # 尝试从数据库查找对应时间的记录
                 cursor.execute("""
-                    SELECT query_time FROM query_history 
-                    WHERE DATE_FORMAT(query_time, '%Y%m%d%H%M%S') = %s
+                    SELECT id, query_time, description 
+                    FROM query_history 
+                    WHERE DATE_FORMAT(query_time, '%%Y%%m%%d%%H%%i%%S') = %s
                 """, (time_id,))
+                
+                # 查询该时间点对应的电量数据
+                cursor.execute("""
+                    SELECT building, room, electricity 
+                    FROM electricity_records 
+                    WHERE DATE_FORMAT(query_time, '%%Y%%m%%d%%H%%i%%S') = %s
+                """, (time_id,))
+                
                 time_row = cursor.fetchone()
                 
                 if time_row:
@@ -574,7 +583,7 @@ def get_room_history(building, room):
         if cursor.fetchone():
             # 使用新表结构 - 按时间点查询
             cursor.execute("""
-                SELECT DATE_FORMAT(er.query_time, '%Y-%m-%d %H:%i:%s') as query_time, er.electricity 
+                SELECT DATE_FORMAT(er.query_time, '%%Y-%%m-%%d %%H:%%i:%%s') as query_time, er.electricity 
                 FROM electricity_records er
                 WHERE er.building = %s AND er.room = %s
                 ORDER BY er.query_time DESC
