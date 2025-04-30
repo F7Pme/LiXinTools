@@ -283,6 +283,15 @@ def get_history_data(time_id):
             
             # 使用新表结构 - 根据日期查询
             try:
+                # 检查time_id是否是有效值
+                if not time_id or time_id == 'undefined':
+                    debug_info['steps'].append("时间ID无效")
+                    return jsonify({
+                        'error': '无效的时间ID',
+                        'query_time': '未知时间',
+                        'debug_info': debug_info
+                    })
+                
                 # 确保time_id至少有8位，如果不够则处理为当天日期
                 if len(time_id) < 8:
                     today = datetime.datetime.now()
@@ -293,11 +302,24 @@ def get_history_data(time_id):
                     debug_info['steps'].append(f"使用日期前缀: {date_only}")
                 
                 # 计算日期信息
-                year = date_only[0:4]
-                month = date_only[4:6]
-                day = date_only[6:8]
-                formatted_date = f"{year}-{month}-{day}"
-                debug_info['formatted_date'] = formatted_date
+                try:
+                    year = date_only[0:4]
+                    month = date_only[4:6]
+                    day = date_only[6:8]
+                    
+                    # 验证日期部分是否由数字组成
+                    if not (year.isdigit() and month.isdigit() and day.isdigit()):
+                        raise ValueError("日期部分必须为数字")
+                        
+                    formatted_date = f"{year}-{month}-{day}"
+                    debug_info['formatted_date'] = formatted_date
+                except Exception as e:
+                    debug_info['steps'].append(f"日期格式化失败: {str(e)}")
+                    return jsonify({
+                        'error': f'无效的日期格式: {date_only}',
+                        'query_time': time_id,
+                        'debug_info': debug_info
+                    })
                 
                 # 1. 检查该日期是否有记录
                 cursor.execute("""
@@ -644,9 +666,8 @@ def fix_history_data():
                     continue
                     
             try:
-                # 修复：不使用IF NOT EXISTS语法，直接添加列
-                # 由于我们已经检查了列是否存在，所以可以安全地使用ADD COLUMN
-                cursor.execute(f"ALTER TABLE electricity_history ADD COLUMN {column_name} VARCHAR(50)")
+                # 尝试创建或更新列
+                cursor.execute(f"ALTER TABLE electricity_history ADD COLUMN IF NOT EXISTS {column_name} VARCHAR(50)")
                 fixed_columns += 1
             except Exception as e:
                 errors.append(f"修复列 {column_name} 时出错: {str(e)}")

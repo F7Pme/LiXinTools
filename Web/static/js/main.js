@@ -536,11 +536,15 @@ async function fetchHistoryTimes() {
 
         const historySelector = document.getElementById('history-selector');
 
+        // 添加调试日志，查看返回的数据结构
+        console.log("历史时间点数据:", data);
+
         if (data.history_times && data.history_times.length > 0) {
             // 遍历每个历史时间点，添加到下拉选择器中
             data.history_times.forEach(item => {
                 const option = document.createElement('option');
-                option.value = item.column_name;
+                // 兼容新旧表结构
+                option.value = item.time_id || item.column_name;
                 option.textContent = item.query_time + (item.description ? ` (${item.description})` : '');
                 historySelector.appendChild(option);
             });
@@ -563,7 +567,7 @@ async function fetchHistoryTimes() {
 }
 
 // 获取指定时间点的历史电量数据
-async function fetchHistoryData(columnName) {
+async function fetchHistoryData(timeId) {
     try {
         // 更新UI以显示加载中状态
         const roomDataElement = document.getElementById('room-data');
@@ -578,8 +582,15 @@ async function fetchHistoryData(columnName) {
             </tr>
         `;
 
+        // 检查timeId是否为undefined
+        if (!timeId || timeId === 'undefined') {
+            throw new Error('无效的时间ID');
+        }
+
+        console.log("请求历史数据，时间ID:", timeId);
+
         // 请求历史数据
-        const response = await fetch(`/api/history_data/${columnName}`);
+        const response = await fetch(`/api/history_data/${timeId}`);
         const data = await response.json();
 
         // 添加调试日志，查看API返回的数据结构
@@ -592,6 +603,7 @@ async function fetchHistoryData(columnName) {
                     <td colspan="4" class="text-center py-5">
                         <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
                         <p class="mt-3">获取历史数据错误: ${data.error}</p>
+                        ${data.debug_info ? `<p class="small text-muted">调试信息: ${JSON.stringify(data.debug_info)}</p>` : ''}
                     </td>
                 </tr>
             `;
@@ -601,7 +613,7 @@ async function fetchHistoryData(columnName) {
         }
 
         // 确保query_time存在，否则使用默认值
-        const queryTime = data.query_time || columnName.substring(2);
+        const queryTime = data.query_time || '未知时间';
 
         // 更新时间显示
         updateDisplayTime(queryTime, true);
@@ -621,7 +633,7 @@ async function fetchHistoryData(columnName) {
                     <td colspan="4" class="text-center py-5">
                         <i class="bi bi-exclamation-circle text-warning" style="font-size: 2rem;"></i>
                         <p class="mt-3">该时间点没有电量数据</p>
-                        <p class="small text-muted">列名: ${columnName}</p>
+                        <p class="small text-muted">时间ID: ${timeId}</p>
                     </td>
                 </tr>
             `;
