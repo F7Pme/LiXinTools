@@ -154,29 +154,51 @@ def get_history_times():
         # 检查新表是否存在
         cursor.execute("SHOW TABLES LIKE 'electricity_records'")
         if cursor.fetchone():
-            # 使用新表 - 直接从query_history获取时间点
+            # 使用新表 - 直接从electricity_records获取唯一的查询时间
             cursor.execute("""
-                SELECT DISTINCT qh.id, qh.query_time, qh.description
-                FROM query_history qh
-                JOIN electricity_records er ON DATE(qh.query_time) = DATE(er.query_time)
-                GROUP BY qh.id, qh.query_time, qh.description
-                ORDER BY qh.query_time DESC
+                SELECT DISTINCT DATE(query_time) as date, 
+                       MIN(DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i:%%s')) as formatted_time
+                FROM electricity_records
+                GROUP BY DATE(query_time)
+                ORDER BY date DESC
             """)
-            history_times = cursor.fetchall()
             
+            distinct_dates = cursor.fetchall()
             valid_times = []
-            for item in history_times:
-                # 格式化query_time为字符串
-                formatted_time = item['query_time'].strftime('%Y-%m-%d %H:%M:%S')
-                time_id = item['query_time'].strftime('%Y%m%d%H%M%S')
+            
+            for date_record in distinct_dates:
+                # 对每个不同的日期，获取该日期的详细信息
+                date_str = date_record['date'].strftime('%Y%m%d')
                 
-                # 添加到有效时间点列表
-                valid_times.append({
-                    'id': item['id'],
-                    'query_time': formatted_time,
-                    'description': item['description'],
-                    'time_id': time_id
-                })
+                # 查找该日期对应的query_history记录(可能没有)
+                cursor.execute("""
+                    SELECT id, query_time, description 
+                    FROM query_history 
+                    WHERE DATE_FORMAT(query_time, '%%Y%%m%%d') = %s
+                    ORDER BY query_time DESC LIMIT 1
+                """, (date_str,))
+                
+                qh_record = cursor.fetchone()
+                
+                if qh_record:
+                    # 如果找到查询历史记录，使用它的信息
+                    valid_times.append({
+                        'id': qh_record['id'],
+                        'query_time': qh_record['query_time'].strftime('%Y-%m-%d %H:%M:%S'),
+                        'description': qh_record['description'],
+                        'time_id': date_str
+                    })
+                else:
+                    # 如果没有查询历史记录，使用电量记录中的时间
+                    formatted_time = date_record['formatted_time']
+                    date_obj = date_record['date']
+                    
+                    valid_times.append({
+                        'id': 0,  # 使用0表示没有对应的查询历史ID
+                        'query_time': formatted_time,
+                        'description': f"{date_obj.strftime('%Y-%m-%d')}电量查询",
+                        'time_id': date_str
+                    })
         else:
             # 使用旧表 - 保持原有逻辑
             cursor.execute("SELECT id, query_time, description FROM query_history ORDER BY query_time DESC")
@@ -216,46 +238,43 @@ def get_history_data(time_id):
         # 检查新表是否存在
         cursor.execute("SHOW TABLES LIKE 'electricity_records'")
         if cursor.fetchone():
-            # 使用新表结构 - 根据时间戳查询
+            # 使用新表结构 - 根据日期查询
             try:
-                # 首先将时间ID转换为合适的日期格式
-                year = time_id[0:4]
-                month = time_id[4:6]
-                day = time_id[6:8]
-                hour = time_id[8:10]
-                minute = time_id[10:12]
-                second = time_id[12:14] if len(time_id) >= 14 else "00"
+                # 如果time_id长度大于8，只取前8位(年月日)
+                date_only = time_id[0:8] if len(time_id) >= 8 else time_id
                 
-                formatted_time = f"{year}-{month}-{day} {hour}:{minute}:{second}"
-                timestamp_pattern = f"{year}{month}{day}%"  # 使用日期前缀进行模糊匹配
+                # 解析日期
+                year = date_only[0:4]
+                month = date_only[4:6]
+                day = date_only[6:8]
                 
-                # 查询该日期的查询记录
+                formatted_date = f"{year}-{month}-{day}"
+                
+                # 查询该日期对应的电量数据
                 cursor.execute("""
-                    SELECT id, query_time, description 
-                    FROM query_history 
+                    SELECT building, room, electricity, 
+                           DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i:%%s') as formatted_time
+                    FROM electricity_records 
                     WHERE DATE_FORMAT(query_time, '%%Y%%m%%d') = %s
-                    ORDER BY query_time DESC
-                    LIMIT 1
-                """, (f"{year}{month}{day}",))
+                """, (date_only,))
                 
-                time_row = cursor.fetchone()
+                rows = cursor.fetchall()
                 
-                if time_row:
-                    query_time = time_row[0].strftime('%Y-%m-%d %H:%M:%S')
-                    
-                    # 查询该日期对应的电量数据
+                if rows:
+                    # 获取该日期最新的查询时间作为展示
                     cursor.execute("""
-                        SELECT building, room, electricity 
-                        FROM electricity_records 
+                        SELECT DATE_FORMAT(MAX(query_time), '%%Y-%%m-%%d %%H:%%i:%%s') as latest_time
+                        FROM electricity_records
                         WHERE DATE_FORMAT(query_time, '%%Y%%m%%d') = %s
-                    """, (f"{year}{month}{day}",))
+                    """, (date_only,))
                     
-                    rows = cursor.fetchall()
+                    time_result = cursor.fetchone()
+                    query_time = time_result[0] if time_result and time_result[0] else formatted_date
                     
                     # 处理为前端可用的格式
                     formatted_data = []
                     for row in rows:
-                        building, room, electricity = row
+                        building, room, electricity, _ = row
                         try:
                             electricity_value = float(electricity)
                             formatted_data.append({
@@ -265,70 +284,36 @@ def get_history_data(time_id):
                             })
                         except (ValueError, TypeError):
                             continue
-                            
+                    
+                    # 去重 - 确保每个房间只有一个记录(取最新的)
+                    room_data = {}
+                    for item in formatted_data:
+                        key = f"{item['building']}-{item['room']}"
+                        if key not in room_data or item['electricity'] > room_data[key]['electricity']:
+                            room_data[key] = item
+                    
+                    # 转换回列表
+                    unique_data = list(room_data.values())
+                    
                     # 按照电量值排序
-                    formatted_data.sort(key=lambda x: x['electricity'])
+                    unique_data.sort(key=lambda x: x['electricity'])
                     
                     return jsonify({
-                        'query_time': formatted_time,
-                        'data': formatted_data
+                        'query_time': query_time,
+                        'data': unique_data
                     })
                 else:
-                    # 如果找不到精确的记录，尝试使用时间ID直接查询电量记录
-                    cursor.execute("""
-                        SELECT building, room, electricity, 
-                               DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i:%%s') as formatted_time
-                        FROM electricity_records 
-                        WHERE DATE_FORMAT(query_time, '%%Y%%m%%d') = %s
-                        LIMIT 1
-                    """, (f"{year}{month}{day}",))
-                    
-                    time_record = cursor.fetchone()
-                    
-                    if time_record:
-                        # 使用找到的时间记录查询所有该日期的电量数据
-                        cursor.execute("""
-                            SELECT building, room, electricity 
-                            FROM electricity_records 
-                            WHERE DATE_FORMAT(query_time, '%%Y%%m%%d') = %s
-                        """, (f"{year}{month}{day}",))
-                        
-                        rows = cursor.fetchall()
-                        record_time = time_record[3]
-                        
-                        # 处理为前端可用的格式
-                        formatted_data = []
-                        for row in rows:
-                            building, room, electricity = row
-                            try:
-                                electricity_value = float(electricity)
-                                formatted_data.append({
-                                    'building': building,
-                                    'room': room,
-                                    'electricity': electricity_value
-                                })
-                            except (ValueError, TypeError):
-                                continue
-                                
-                        # 按照电量值排序
-                        formatted_data.sort(key=lambda x: x['electricity'])
-                        
-                        return jsonify({
-                            'query_time': record_time,
-                            'data': formatted_data
-                        })
-                    else:
-                        return jsonify({
-                            'error': '未找到对应日期的记录',
-                            'query_time': formatted_time
-                        })
+                    return jsonify({
+                        'error': '未找到对应日期的记录',
+                        'query_time': formatted_date
+                    })
             except Exception as parsing_error:
                 return jsonify({
                     'error': f'解析时间格式错误: {str(parsing_error)}',
                     'query_time': time_id
                 })
         else:
-            # 使用旧表结构 - 保持原有逻辑
+            # 使用旧表结构 - 保持不变
             # 处理column_name参数
             if time_id.startswith('e_'):
                 column_name = time_id
@@ -343,8 +328,8 @@ def get_history_data(time_id):
                 year = time_str[0:4]
                 month = time_str[4:6]
                 day = time_str[6:8]
-                hour = time_str[8:10]
-                minute = time_str[10:12]
+                hour = time_str[8:10] if len(time_str) >= 10 else "00"
+                minute = time_str[10:12] if len(time_str) >= 12 else "00"
                 second = time_str[12:14] if len(time_str) >= 14 else "00"
                 
                 formatted_time = f"{year}-{month}-{day} {hour}:{minute}:{second}"
