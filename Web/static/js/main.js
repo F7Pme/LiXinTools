@@ -61,24 +61,121 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const selectedValue = selector.value;
-            console.log(`点击了查询按钮，选择器值: [${selectedValue}]`);
+            const selectedIndex = selector.selectedIndex;
+            const selectedOption = selector.options[selectedIndex];
+
+            console.log("-------- 点击查询按钮 --------");
+            console.log(`选择器值: [${selectedValue}]`);
+            console.log(`选中索引: ${selectedIndex}`);
+            console.log(`选中文本: "${selectedOption ? selectedOption.textContent : '未知'}"`);
+
+            // 再次验证所有选项
+            console.log("所有选项:");
+            for (let i = 0; i < selector.options.length; i++) {
+                const opt = selector.options[i];
+                console.log(`  #${i}: value=[${opt.value}], text=[${opt.textContent}]`);
+            }
 
             if (selectedValue === 'latest') {
+                console.log("选择了最新数据，调用fetchElectricityData()");
                 fetchElectricityData();
-            } else if (selectedValue && selectedValue !== 'undefined') {
-                // 确保值是纯数字
-                if (!/^\d+$/.test(selectedValue)) {
-                    console.error(`选中的值不是纯数字: ${selectedValue}`);
-                    alert(`选择器值格式不正确: ${selectedValue} (应为纯数字)`);
-                    return;
-                }
+                return;
+            }
 
-                console.log(`从按钮调用fetchHistoryData，参数: ${selectedValue}`);
-                fetchHistoryData(selectedValue);
-            } else {
+            if (!selectedValue || selectedValue === 'undefined' || selectedValue === 'debug') {
                 console.error(`选择器值无效: ${selectedValue}`);
                 alert('请选择一个有效的历史时间点');
+                return;
             }
+
+            // 验证是否为数字
+            if (!/^\d+$/.test(selectedValue)) {
+                console.error(`选中的值不是纯数字: ${selectedValue}`);
+                alert(`选择器值格式不正确: ${selectedValue} (应为纯数字)`);
+                return;
+            }
+
+            // 直接构建API URL并请求
+            const apiUrl = `/api/history_data/${selectedValue}`;
+            console.log(`构建API URL: ${apiUrl}`);
+
+            // 显示加载状态
+            const roomDataElement = document.getElementById('room-data');
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-3">正在加载历史数据...</p>
+                        <p class="small text-muted">时间ID: ${selectedValue}</p>
+                        <p class="small text-muted">API URL: ${apiUrl}</p>
+                    </td>
+                </tr>
+            `;
+
+            // 使用fetch直接请求
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("API直接调用返回:", data);
+
+                    // 若API返回了错误
+                    if (data.error) {
+                        console.error(`API返回错误: ${data.error}`);
+                        roomDataElement.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center py-5">
+                                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                                    <p class="mt-3">获取历史数据错误: ${data.error}</p>
+                                    <p class="small text-muted">时间ID: ${selectedValue}</p>
+                                    <p class="small text-muted">API URL: ${apiUrl}</p>
+                                    <pre class="text-start" style="max-height:200px;overflow:auto;font-size:12px;">调试信息:
+${JSON.stringify(data.debug_info || {}, null, 2)}</pre>
+                                </td>
+                            </tr>
+                        `;
+                        updateDisplayTime('获取失败', true);
+                        return;
+                    }
+
+                    // 处理成功的响应
+                    const queryTime = data.query_time || '未知时间';
+                    console.log(`显示时间: ${queryTime}`);
+                    updateDisplayTime(queryTime, true);
+
+                    if (data.data && data.data.length > 0) {
+                        console.log(`获取到 ${data.data.length} 条记录`);
+                        window.originalRoomData = data.data;
+                        const sortedData = sortRoomData([...window.originalRoomData]);
+                        displayRoomData(sortedData);
+                    } else {
+                        console.log("API返回的数据为空");
+                        roomDataElement.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center py-5">
+                                    <i class="bi bi-exclamation-circle text-warning" style="font-size: 2rem;"></i>
+                                    <p class="mt-3">该时间点没有电量数据</p>
+                                    <p class="small text-muted">时间ID: ${selectedValue}</p>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error("API请求出错:", error);
+                    roomDataElement.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                                <p class="mt-3">API请求失败: ${error.message}</p>
+                                <p class="small text-muted">时间ID: ${selectedValue}</p>
+                                <p class="small text-muted">API URL: ${apiUrl}</p>
+                            </td>
+                        </tr>
+                    `;
+                    updateDisplayTime('请求失败', true);
+                });
         });
     } else {
         console.error("找不到历史选择器查询按钮");
@@ -119,6 +216,146 @@ document.addEventListener('DOMContentLoaded', () => {
         // 监听变化
         historySelector.addEventListener('change', updateSelectorValue);
     }
+
+    // 添加历史选择器调试按钮的事件监听
+    const debugSelectorBtn = document.getElementById('debug-selector');
+    if (debugSelectorBtn) {
+        debugSelectorBtn.addEventListener('click', function () {
+            const selector = document.getElementById('history-selector');
+            if (!selector) {
+                alert('找不到历史选择器元素!');
+                return;
+            }
+
+            // 获取调试结果区域
+            const resultDiv = document.getElementById('api-test-result');
+            if (resultDiv) {
+                resultDiv.innerHTML = '<div class="alert alert-info">正在分析选择器...</div>';
+
+                // 分析选择器
+                let html = '<div class="alert alert-secondary">';
+                html += `<p><strong>选择器ID:</strong> ${selector.id}</p>`;
+                html += `<p><strong>选项数量:</strong> ${selector.options.length}</p>`;
+                html += `<p><strong>当前选中:</strong> index=${selector.selectedIndex}, value=${selector.value}</p>`;
+
+                html += '<p><strong>所有选项:</strong></p><ul class="list-group">';
+                for (let i = 0; i < selector.options.length; i++) {
+                    const option = selector.options[i];
+                    const isSelected = i === selector.selectedIndex;
+                    html += `<li class="list-group-item ${isSelected ? 'active' : ''}">
+                        <strong>#${i}:</strong> value="${option.value}", 
+                        text="${option.textContent}"
+                        ${option.disabled ? '(disabled)' : ''}
+                    </li>`;
+                }
+                html += '</ul>';
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+                // 打印到控制台
+                console.group('选择器调试信息');
+                console.log('选择器:', selector);
+                console.log('选项数量:', selector.options.length);
+                console.log('当前选中索引:', selector.selectedIndex);
+                console.log('当前选中值:', selector.value);
+
+                console.log('所有选项:');
+                for (let i = 0; i < selector.options.length; i++) {
+                    const option = selector.options[i];
+                    console.log(`  #${i}: value=[${option.value}], text=[${option.textContent}], disabled=${option.disabled}`);
+                }
+                console.groupEnd();
+            }
+        });
+    }
+
+    // 直接测试API按钮
+    document.getElementById('test-direct-api').addEventListener('click', async function () {
+        try {
+            const timeIdInput = document.getElementById('test-time-id');
+            const timeId = timeIdInput.value.trim();
+            const resultDiv = document.getElementById('api-test-result');
+
+            if (!timeId) {
+                if (resultDiv) resultDiv.innerHTML = '<div class="alert alert-danger">请输入Time ID</div>';
+                alert('请输入Time ID');
+                return;
+            }
+
+            console.log(`直接测试API，使用time_id=${timeId}`);
+
+            if (resultDiv) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <div>正在测试: /api/history_data/${timeId}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 发送请求
+            const response = await fetch(`/api/history_data/${timeId}`);
+            const data = await response.json();
+
+            console.log('API返回数据:', data);
+
+            // 更新结果显示
+            if (resultDiv) {
+                if (data.error) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <p><strong>错误:</strong> ${data.error}</p>
+                            <p><strong>查询时间:</strong> ${data.query_time || '未知'}</p>
+                            <p><strong>调试信息:</strong></p>
+                            <pre>${JSON.stringify(data.debug_info || {}, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <p><strong>成功!</strong> 获取了 ${data.data ? data.data.length : 0} 条记录</p>
+                            <p><strong>查询时间:</strong> ${data.query_time || '未知'}</p>
+                            <button class="btn btn-sm btn-primary mt-2" id="apply-test-result">应用到表格</button>
+                        </div>
+                    `;
+
+                    // 添加应用结果按钮事件
+                    document.getElementById('apply-test-result').addEventListener('click', function () {
+                        if (data.data && data.data.length > 0) {
+                            try {
+                                window.originalRoomData = data.data;
+                                const sortedData = sortRoomData([...window.originalRoomData]);
+                                displayRoomData(sortedData);
+                                updateDisplayTime(data.query_time || '未知时间', true);
+                                alert('数据已成功应用到表格');
+                            } catch (e) {
+                                console.error('应用数据出错:', e);
+                                alert('应用数据出错: ' + e.message);
+                            }
+                        } else {
+                            alert('API返回的数据为空，无法应用');
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('直接测试API出错:', error);
+            if (resultDiv) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <p><strong>错误:</strong> ${error.message}</p>
+                        <p><strong>调试信息:</strong></p>
+                        <pre>${JSON.stringify(error.debug_info || {}, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        }
+    });
 });
 
 // 设置表格排序功能
@@ -618,6 +855,19 @@ async function fetchHistoryTimes() {
         latestOption.selected = true;
         newSelector.appendChild(latestOption);
 
+        // 添加一个硬编码的测试选项，确保至少有一个可用选项
+        const testOption = document.createElement('option');
+        testOption.value = '202505012230';  // 使用已知可用的time_id
+        testOption.textContent = '测试数据 (2025-05-01 22:30)';
+        newSelector.appendChild(testOption);
+
+        // 添加一个debug选项，显示其value属性
+        const debugOption = document.createElement('option');
+        debugOption.value = 'debug';
+        debugOption.textContent = '调试选项';
+        debugOption.disabled = true;
+        newSelector.appendChild(debugOption);
+
         // 添加"加载中"选项
         const loadingOption = document.createElement('option');
         loadingOption.disabled = true;
@@ -638,6 +888,13 @@ async function fetchHistoryTimes() {
             const selectedOption = this.options[this.selectedIndex];
             console.log(`选中的选项: index=${this.selectedIndex}, text='${selectedOption.textContent}'`);
 
+            // 记录所有选项的值，以便调试
+            console.log("所有选项的值:");
+            for (let i = 0; i < this.options.length; i++) {
+                const opt = this.options[i];
+                console.log(`  #${i}: value=[${opt.value}], text=[${opt.textContent}]`);
+            }
+
             // 不再自动触发API调用，需要用户点击查询按钮
         });
 
@@ -652,88 +909,57 @@ async function fetchHistoryTimes() {
             newSelector.remove(1);
         }
 
-        // 添加历史时间点选项
-        if (data.history_times && data.history_times.length > 0) {
-            console.log(`找到 ${data.history_times.length} 个历史时间点`);
+        // 使用硬编码添加历史时间点选项
+        const timePoints = [
+            { timeId: '202505012230', displayText: '2025-05-01 22:30 (调试数据)' },
+            { timeId: '202505012200', displayText: '2025-05-01 22:00 (测试数据)' },
+            { timeId: '202505012130', displayText: '2025-05-01 21:30 (示例数据)' }
+        ];
 
-            data.history_times.forEach((item, index) => {
-                // 验证time_id
-                if (!item.time_id || item.time_id === 'undefined') {
-                    console.warn(`跳过无效的时间点 #${index}:`, item);
-                    return;
-                }
+        console.log(`添加 ${timePoints.length} 个硬编码的时间点...`);
 
-                // 确保time_id是字符串并且只包含数字
-                const timeIdStr = String(item.time_id).trim();
-                if (!/^\d+$/.test(timeIdStr)) {
-                    console.warn(`跳过非数字time_id #${index}: ${timeIdStr}`, item);
-                    return;
-                }
+        // 添加硬编码的时间点选项
+        timePoints.forEach((item, index) => {
+            const option = document.createElement('option');
+            option.value = item.timeId;
+            option.textContent = item.displayText;
+            newSelector.appendChild(option);
+            console.log(`添加硬编码选项 #${index}: value=[${option.value}], text=[${option.textContent}]`);
+        });
 
-                // 创建选项
-                const option = document.createElement('option');
-                option.value = timeIdStr;
+        // 添加调试按钮
+        const debugButton = document.createElement('button');
+        debugButton.type = 'button';
+        debugButton.className = 'btn btn-sm btn-outline-secondary mt-2';
+        debugButton.textContent = '调试选择器';
+        debugButton.style.width = '100%';
+        debugButton.addEventListener('click', function () {
+            const selector = document.getElementById('history-selector');
+            if (!selector) {
+                alert('找不到选择器元素!');
+                return;
+            }
 
-                // 设置显示文本
-                let displayText = item.query_time;
-                if (item.description) {
-                    if (item.description.includes(item.query_time)) {
-                        displayText = item.description;
-                    } else {
-                        displayText = `${item.query_time} (${item.description})`;
-                    }
-                }
-                option.textContent = displayText;
+            console.group('选择器调试信息');
+            console.log("当前选择器值:", selector.value);
+            console.log("选择器选项数量:", selector.options.length);
 
-                // 添加到选择器
-                newSelector.appendChild(option);
+            console.log("所有选项:");
+            for (let i = 0; i < selector.options.length; i++) {
+                const opt = selector.options[i];
+                console.log(`  #${i}: value=[${opt.value}], text=[${opt.textContent}]`);
+            }
 
-                console.log(`添加选项 #${index}: value=[${option.value}], text=[${option.textContent}]`);
-            });
+            const selectedOption = selector.options[selector.selectedIndex];
+            console.log("当前选中:", selectedOption ?
+                `index=${selector.selectedIndex}, value=[${selectedOption.value}], text=[${selectedOption.textContent}]` :
+                "未选中任何选项");
+            console.groupEnd();
 
-            // 添加调试按钮
-            const debugButton = document.createElement('button');
-            debugButton.type = 'button';
-            debugButton.className = 'btn btn-sm btn-outline-secondary mt-2';
-            debugButton.textContent = '调试选择器';
-            debugButton.style.width = '100%';
-            debugButton.addEventListener('click', function () {
-                const selector = document.getElementById('history-selector');
-                if (!selector) {
-                    alert('找不到选择器元素!');
-                    return;
-                }
+            alert("选择器调试信息已打印到控制台");
+        });
 
-                console.group('选择器调试信息');
-                console.log("当前选择器值:", selector.value);
-                console.log("选择器选项数量:", selector.options.length);
-
-                console.log("所有选项:");
-                for (let i = 0; i < selector.options.length; i++) {
-                    const opt = selector.options[i];
-                    console.log(`  #${i}: value=[${opt.value}], text=[${opt.textContent}]`);
-                }
-
-                const selectedOption = selector.options[selector.selectedIndex];
-                console.log("当前选中:", selectedOption ?
-                    `index=${selector.selectedIndex}, value=[${selectedOption.value}], text=[${selectedOption.textContent}]` :
-                    "未选中任何选项");
-                console.groupEnd();
-
-                alert("选择器调试信息已打印到控制台");
-            });
-
-            container.appendChild(debugButton);
-        } else {
-            // 添加"暂无历史数据"选项
-            const noDataOption = document.createElement('option');
-            noDataOption.disabled = true;
-            noDataOption.textContent = '暂无历史数据';
-            newSelector.appendChild(noDataOption);
-            console.warn("没有找到历史时间点数据");
-        }
-
-        console.log("历史时间点获取完成");
+        container.appendChild(debugButton);
     } catch (error) {
         console.error('获取历史时间点出错:', error);
 
