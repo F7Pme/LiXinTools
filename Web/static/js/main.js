@@ -638,9 +638,9 @@ async function fetchHistoryData(timeId) {
             return;
         }
 
-        // 检查是否是合法的8位日期ID (YYYYMMDD)
-        if (!/^\d{8}$/.test(timeId)) {
-            console.error("时间ID格式错误，应为8位数字:", timeId);
+        // 检查是否是合法的8位或12位日期ID (YYYYMMDD 或 YYYYMMDDHHmm)
+        if (!/^\d{8}$/.test(timeId) && !/^\d{12}$/.test(timeId)) {
+            console.error("时间ID格式错误，应为8位或12位数字:", timeId);
 
             const roomDataElement = document.getElementById('room-data');
             roomDataElement.innerHTML = `
@@ -648,7 +648,7 @@ async function fetchHistoryData(timeId) {
                     <td colspan="4" class="text-center py-5">
                         <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
                         <p class="mt-3">时间ID格式错误</p>
-                        <p class="small text-muted">ID应为8位数字(YYYYMMDD): ${timeId}</p>
+                        <p class="small text-muted">ID应为8位(YYYYMMDD)或12位(YYYYMMDDHHmm)数字: ${timeId}</p>
                     </td>
                 </tr>
             `;
@@ -666,7 +666,7 @@ async function fetchHistoryData(timeId) {
                         <span class="visually-hidden">加载中...</span>
                     </div>
                     <p class="mt-3">正在加载历史数据...</p>
-                    <p class="small text-muted">日期ID: ${timeId}</p>
+                    <p class="small text-muted">时间ID: ${timeId}</p>
                 </td>
             </tr>
         `;
