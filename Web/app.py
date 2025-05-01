@@ -167,13 +167,14 @@ def get_history_times():
             SELECT 
                 DATE_FORMAT(query_time, '%%Y%%m%%d%%H%%i') AS time_id,
                 DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i') AS formatted_time,
-                COUNT(*) AS record_count
+                COUNT(*) AS record_count,
+                MAX(query_time) AS latest_time
             FROM 
                 electricity_records
             GROUP BY 
                 time_id, formatted_time
             ORDER BY 
-                query_time DESC
+                time_id DESC
             LIMIT 100
         """)
         
