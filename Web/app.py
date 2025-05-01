@@ -198,16 +198,23 @@ def get_history_times():
             formatted_time = point['formatted_time']  # 格式：YYYY-MM-DD HH:mm
             record_count = point['record_count']
             
+            # 确保time_id是一个字符串并且不是'undefined'
+            if time_id == 'undefined' or time_id is None:
+                print(f"警告：发现无效的time_id: {time_id}")
+                continue
+                
+            time_id_str = str(time_id)
+            
             # 确保time_id不为undefined
             time_record = {
-                'time_id': time_id,
+                'time_id': time_id_str,
                 'query_time': formatted_time,
                 'description': f"电量记录 ({record_count}条)",
                 'record_count': record_count,
                 'id': 0
             }
             
-            print(f"时间点: time_id={time_id}, formatted_time={formatted_time}, 记录数={record_count}")
+            print(f"时间点: time_id={time_id_str}, formatted_time={formatted_time}, 记录数={record_count}")
             
             # 尝试从query_history找到对应的描述
             try:
@@ -290,6 +297,8 @@ def get_history_times():
 def get_history_data(time_id):
     """获取指定时间点的电量数据"""
     try:
+        print(f"收到请求：/api/history_data/{time_id}")
+        
         conn = pymysql.connect(
             host=DB_CONFIG['host'],
             user=DB_CONFIG['user'],
@@ -300,19 +309,27 @@ def get_history_data(time_id):
         
         # 调试信息
         debug_info = {
-            'time_id': time_id
+            'time_id': time_id,
+            'time_id_type': type(time_id).__name__
         }
         
         # 验证time_id
-        if not time_id or time_id == 'undefined':
+        if not time_id or time_id == 'undefined' or time_id == 'null':
+            print(f"无效的时间ID: {time_id}")
             return jsonify({
                 'error': '无效的时间ID',
                 'query_time': '未知时间',
                 'debug_info': debug_info
             })
+            
+        # 确保time_id是字符串类型
+        time_id = str(time_id).strip()
+        debug_info['cleaned_time_id'] = time_id
         
         # 处理时间ID
         try:
+            print(f"处理时间ID: {time_id}, 长度: {len(time_id)}, 是数字: {time_id.isdigit()}")
+            
             # 验证time_id格式 - 支持两种格式：YYYYMMDD 或 YYYYMMDDHHmm
             if len(time_id) == 8 and time_id.isdigit():
                 # 按日期查询 - YYYYMMDD格式
@@ -323,6 +340,7 @@ def get_history_data(time_id):
                 # 构建查询条件和显示时间
                 formatted_date = f"{year}-{month}-{day}"
                 debug_info['formatted_date'] = formatted_date
+                print(f"按日期查询：{formatted_date}")
                 
                 # 查询该日期的所有数据
                 cursor.execute("""
@@ -348,6 +366,7 @@ def get_history_data(time_id):
                 # 构建查询条件和显示时间
                 formatted_datetime = f"{year}-{month}-{day} {hour}:{minute}"
                 debug_info['formatted_datetime'] = formatted_datetime
+                print(f"按时间点查询：{formatted_datetime}")
                 
                 # 查询指定分钟的数据
                 cursor.execute("""
@@ -363,13 +382,54 @@ def get_history_data(time_id):
                 debug_info['query_type'] = 'by_minute'
                 
             else:
-                raise ValueError(f"时间ID格式不正确，应为8位(YYYYMMDD)或12位(YYYYMMDDHHmm)数字: {time_id}")
+                # 尝试兼容处理 - 可能前端传递了非标准格式
+                print(f"非标准时间ID格式: {time_id}")
+                
+                # 如果time_id包含-或:，可能是格式化的日期时间字符串
+                if '-' in time_id:
+                    try:
+                        # 尝试提取日期部分
+                        date_parts = time_id.split(' ')[0].split('-')
+                        if len(date_parts) == 3:
+                            year, month, day = date_parts
+                            # 构建YYYYMMDD格式
+                            date_id = f"{year}{month}{day}"
+                            if len(date_id) == 8 and date_id.isdigit():
+                                print(f"从日期字符串提取日期ID: {date_id}")
+                                formatted_date = f"{year}-{month}-{day}"
+                                
+                                # 查询该日期的所有数据
+                                cursor.execute("""
+                                    SELECT building, room, electricity, 
+                                           DATE_FORMAT(query_time, '%Y-%m-%d %H:%i:%s') AS query_time
+                                    FROM electricity_records
+                                    WHERE DATE(query_time) = %s
+                                    ORDER BY query_time DESC
+                                """, (formatted_date,))
+                                
+                                display_time = formatted_date
+                                debug_info['query_type'] = 'by_date_string'
+                                debug_info['extracted_date_id'] = date_id
+                            else:
+                                raise ValueError("无法提取有效的日期")
+                        else:
+                            raise ValueError("日期格式错误")
+                    except Exception as e:
+                        debug_info['date_extraction_error'] = str(e)
+                        raise ValueError(f"时间ID格式不正确: {time_id}")
+                else:
+                    raise ValueError(f"时间ID格式不正确，应为8位(YYYYMMDD)或12位(YYYYMMDDHHmm)数字: {time_id}")
             
             rows = cursor.fetchall()
+            
+            # 记录SQL查询结果
+            debug_info['sql_query_rows'] = len(rows)
+            print(f"SQL查询返回 {len(rows)} 行数据")
             
             # 检查是否有数据
             if not rows:
                 debug_info['error'] = "查询没有返回任何数据"
+                print(f"未找到对应时间点的记录: {time_id}")
                 return jsonify({
                     'error': '未找到对应时间点的记录',
                     'query_time': display_time,
@@ -429,17 +489,21 @@ def get_history_data(time_id):
             formatted_data.sort(key=lambda x: x['electricity'])
             
             debug_info['unique_rooms'] = len(formatted_data)
+            print(f"处理后共 {len(formatted_data)} 个唯一房间")
             
             # 返回结果
-            return jsonify({
+            response_data = {
                 'query_time': display_time,
                 'data': formatted_data,
                 'count': len(formatted_data),
                 'debug_info': debug_info
-            })
+            }
+            print(f"返回结果：query_time={display_time}, 数据条数={len(formatted_data)}")
+            return jsonify(response_data)
             
         except ValueError as e:
             debug_info['value_error'] = str(e)
+            print(f"时间格式错误: {str(e)}")
             return jsonify({
                 'error': f'时间格式错误: {str(e)}',
                 'query_time': time_id,
@@ -451,6 +515,7 @@ def get_history_data(time_id):
             conn.close()
             
     except Exception as e:
+        print(f"查询出错: {str(e)}")
         error_info = {
             'error': str(e),
             'time_id': time_id
