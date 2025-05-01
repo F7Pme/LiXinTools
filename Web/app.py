@@ -183,8 +183,12 @@ def get_history_times():
                 MAX(query_time) AS latest_time
             FROM 
                 electricity_records
+            WHERE
+                YEAR(query_time) > 0  -- 确保年份有效
             GROUP BY 
                 time_id, formatted_time
+            HAVING
+                time_id REGEXP '^[0-9]+$'  -- 确保time_id只包含数字
             ORDER BY 
                 latest_time DESC
             LIMIT 100

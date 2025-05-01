@@ -438,13 +438,20 @@
 
                     // 添加应用到选择器按钮事件
                     document.getElementById('apply-to-selector').addEventListener('click', function () {
-                        if (data.error) {
-                            alert('API返回错误，无法应用到选择器');
-                            return;
-                        }
-
-                        // 直接调用应用历史数据函数
                         try {
+                            if (data.error) {
+                                alert('API返回错误，无法应用到选择器');
+                                return;
+                            }
+
+                            // 检查函数是否存在
+                            if (typeof window.applyHistoryData !== 'function') {
+                                console.error('applyHistoryData函数未定义，请刷新页面');
+                                alert('应用函数未定义，请刷新页面后重试');
+                                return;
+                            }
+
+                            // 直接调用应用历史数据函数
                             if (window.applyHistoryData(data, timeId)) {
                                 alert('数据已成功应用到表格中');
                             } else {

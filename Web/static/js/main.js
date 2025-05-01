@@ -561,7 +561,14 @@ async function fetchHistoryTimes() {
         // 添加选择器事件监听
         newSelector.addEventListener('change', function () {
             const value = this.value;
-            console.log(`选择器变更: 选择了 [${value}]`);
+            console.log(`选择器变更事件触发，选择器DOM元素:`, this);
+            console.log(`选择器当前值: [${value}], 类型: ${typeof value}, 长度: ${value ? value.length : 0}`);
+            console.log(`选中索引: ${this.selectedIndex}, 选项总数: ${this.options.length}`);
+
+            if (this.selectedIndex >= 0) {
+                const selectedOption = this.options[this.selectedIndex];
+                console.log(`选中的选项: value=[${selectedOption.value}], text=[${selectedOption.textContent}]`);
+            }
 
             if (value === 'latest') {
                 fetchElectricityData();
@@ -582,8 +589,12 @@ async function fetchHistoryTimes() {
                     </tr>
                 `;
 
+                // 使用encodeURIComponent编码time_id，避免URL问题
+                const encodedTimeId = encodeURIComponent(value);
+                console.log(`编码后的时间ID: ${encodedTimeId}`);
+
                 // 直接构造API URL并获取数据
-                fetch(`/api/history_data/${value}`)
+                fetch(`/api/history_data/${encodedTimeId}`)
                     .then(response => response.json())
                     .then(data => {
                         console.log("API返回数据:", data);
@@ -606,7 +617,7 @@ async function fetchHistoryTimes() {
                         }
 
                         // 应用历史数据
-                        applyHistoryData(data, value);
+                        window.applyHistoryData(data, value);
                     })
                     .catch(error => {
                         console.error("API请求失败:", error);
@@ -643,13 +654,21 @@ async function fetchHistoryTimes() {
 
             data.history_times.forEach((item, index) => {
                 // 验证time_id
-                if (!item.time_id || item.time_id === 'undefined') {
+                if (!item.time_id || item.time_id === 'undefined' || item.time_id === '%Y%m%d%H%i') {
                     console.warn(`跳过无效的时间点 #${index}:`, item);
                     return;
                 }
 
-                // 确保time_id是字符串
+                // 确保time_id是字符串且格式正确
                 const timeIdValue = String(item.time_id);
+
+                // 检查time_id格式是否正确（至少是一个可用的数字ID）
+                if (!/^\d{8,}$/.test(timeIdValue)) {
+                    console.warn(`跳过格式不正确的时间点 #${index}, time_id=[${timeIdValue}]`);
+                    return;
+                }
+
+                console.log(`处理有效时间点 #${index}, time_id=[${timeIdValue}]`);
 
                 // 创建选项
                 const option = document.createElement('option');
@@ -736,7 +755,7 @@ async function fetchHistoryTimes() {
 }
 
 // 获取指定时间点的历史电量数据
-function applyHistoryData(data, timeId) {
+window.applyHistoryData = function (data, timeId) {
     try {
         // 确保query_time存在
         const queryTime = data.query_time || '未知时间';
