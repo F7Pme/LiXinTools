@@ -564,6 +564,37 @@ async function fetchHistoryTimes() {
 
                 console.log(`添加选项: value=${option.value}, text=${option.textContent}`);
             });
+
+            // 创建调试按钮
+            const debugButton = document.createElement('button');
+            debugButton.type = 'button';
+            debugButton.className = 'btn btn-sm btn-outline-secondary mt-2';
+            debugButton.textContent = '调试选择器';
+            debugButton.addEventListener('click', function () {
+                const selector = document.getElementById('history-selector');
+                console.log("选择器当前值:", selector.value);
+                console.log("选择器选项数量:", selector.options.length);
+
+                // 检查所有选项
+                for (let i = 0; i < selector.options.length; i++) {
+                    const option = selector.options[i];
+                    console.log(`选项 #${i}: value=${option.value}, text=${option.textContent}`);
+                }
+
+                // 显示选中的选项
+                const selectedOption = selector.options[selector.selectedIndex];
+                console.log("当前选中:", selectedOption ?
+                    `value=${selectedOption.value}, text=${selectedOption.textContent}` :
+                    "未选中任何选项");
+
+                alert("选择器调试信息已打印到控制台");
+            });
+
+            // 将调试按钮添加到页面
+            const container = document.querySelector('.history-selector-container');
+            if (container) {
+                container.appendChild(debugButton);
+            }
         } else {
             // 添加"暂无历史数据"选项
             const noDataOption = document.createElement('option');
@@ -579,9 +610,15 @@ async function fetchHistoryTimes() {
             const selectedValue = this.value;
             console.log(`选择器变更: ${selectedValue}`);
 
+            // 打印选中选项的详细信息
+            const selectedIndex = this.selectedIndex;
+            const selectedOption = this.options[selectedIndex];
+            console.log(`选中选项详情: index=${selectedIndex}, value=${selectedOption.value}, text=${selectedOption.textContent}`);
+
             if (selectedValue === 'latest') {
                 fetchElectricityData();
             } else {
+                console.log("准备获取历史数据，timeId =", selectedValue);
                 fetchHistoryData(selectedValue);
             }
         });
@@ -590,6 +627,12 @@ async function fetchHistoryTimes() {
         if (historySelector && historySelector.parentNode) {
             historySelector.parentNode.replaceChild(newSelector, historySelector);
             console.log("选择器已替换");
+
+            // 记录所有选项
+            console.log("所有选项值:");
+            for (let i = 0; i < newSelector.options.length; i++) {
+                console.log(`选项 #${i}: ${newSelector.options[i].value}`);
+            }
         } else {
             console.error("找不到原始选择器元素");
         }
@@ -617,8 +660,11 @@ async function fetchHistoryTimes() {
 // 获取指定时间点的历史电量数据
 async function fetchHistoryData(timeId) {
     try {
-        // 检查timeId是否为undefined
-        if (!timeId || timeId === 'undefined') {
+        console.log("fetchHistoryData函数调用，接收到timeId:", timeId);
+        console.log("timeId类型:", typeof timeId);
+
+        // 检查timeId是否为undefined或null
+        if (!timeId || timeId === 'undefined' || timeId === 'null') {
             console.error("无效的时间ID:", timeId);
 
             // 显示错误信息
@@ -629,6 +675,7 @@ async function fetchHistoryData(timeId) {
                         <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
                         <p class="mt-3">无效的时间ID</p>
                         <p class="small text-muted">请重新选择日期或刷新页面</p>
+                        <p class="small text-muted">调试信息: timeId为 ${timeId}</p>
                     </td>
                 </tr>
             `;
@@ -638,24 +685,9 @@ async function fetchHistoryData(timeId) {
             return;
         }
 
-        // 检查是否是合法的8位或12位日期ID (YYYYMMDD 或 YYYYMMDDHHmm)
-        if (!/^\d{8}$/.test(timeId) && !/^\d{12}$/.test(timeId)) {
-            console.error("时间ID格式错误，应为8位或12位数字:", timeId);
-
-            const roomDataElement = document.getElementById('room-data');
-            roomDataElement.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center py-5">
-                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                        <p class="mt-3">时间ID格式错误</p>
-                        <p class="small text-muted">ID应为8位(YYYYMMDD)或12位(YYYYMMDDHHmm)数字: ${timeId}</p>
-                    </td>
-                </tr>
-            `;
-
-            updateDisplayTime('格式错误', true);
-            return;
-        }
+        // 将timeId转为字符串确保一致性
+        const timeIdStr = String(timeId);
+        console.log("转换后的timeId:", timeIdStr);
 
         // 更新UI以显示加载中状态
         const roomDataElement = document.getElementById('room-data');
@@ -666,15 +698,15 @@ async function fetchHistoryData(timeId) {
                         <span class="visually-hidden">加载中...</span>
                     </div>
                     <p class="mt-3">正在加载历史数据...</p>
-                    <p class="small text-muted">时间ID: ${timeId}</p>
+                    <p class="small text-muted">时间ID: ${timeIdStr}</p>
                 </td>
             </tr>
         `;
 
-        console.log("请求历史数据，时间ID:", timeId);
+        console.log("请求历史数据，时间ID:", timeIdStr);
 
-        // 请求历史数据
-        const response = await fetch(`/api/history_data/${timeId}`);
+        // 请求历史数据 - 使用转换后的字符串timeId
+        const response = await fetch(`/api/history_data/${timeIdStr}`);
         const data = await response.json();
 
         // 添加调试日志，查看API返回的数据结构
@@ -687,7 +719,7 @@ async function fetchHistoryData(timeId) {
                     <td colspan="4" class="text-center py-5">
                         <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
                         <p class="mt-3">获取历史数据错误: ${data.error}</p>
-                        <p class="small text-muted">时间ID: ${timeId}</p>
+                        <p class="small text-muted">时间ID: ${timeIdStr}</p>
                         ${data.debug_info ? `<p class="small text-muted">调试信息: ${JSON.stringify(data.debug_info)}</p>` : ''}
                     </td>
                 </tr>
@@ -718,7 +750,7 @@ async function fetchHistoryData(timeId) {
                     <td colspan="4" class="text-center py-5">
                         <i class="bi bi-exclamation-circle text-warning" style="font-size: 2rem;"></i>
                         <p class="mt-3">该时间点没有电量数据</p>
-                        <p class="small text-muted">时间ID: ${timeId}</p>
+                        <p class="small text-muted">时间ID: ${timeIdStr}</p>
                     </td>
                 </tr>
             `;
