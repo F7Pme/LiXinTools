@@ -575,9 +575,9 @@ async function fetchHistoryTimes() {
         }
 
         // 5. 添加变更事件监听器
-        newSelector.addEventListener('change', () => {
-            const selectedValue = newSelector.value;
-            console.log(`选择了: ${selectedValue}`);
+        newSelector.addEventListener('change', function () {
+            const selectedValue = this.value;
+            console.log(`选择器变更: ${selectedValue}`);
 
             if (selectedValue === 'latest') {
                 fetchElectricityData();
