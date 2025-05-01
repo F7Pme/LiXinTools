@@ -536,19 +536,44 @@ async function fetchHistoryTimes() {
 
         const historySelector = document.getElementById('history-selector');
 
-        // 添加调试日志，查看返回的数据结构
-        console.log("历史时间点数据:", data);
+        // 清空现有选项（除了"最新数据"）
+        while (historySelector.options.length > 1) {
+            historySelector.remove(1);
+        }
+
+        // 添加详细的调试日志，查看完整的API响应
+        console.log("历史时间点API响应:", JSON.stringify(data, null, 2));
 
         if (data.history_times && data.history_times.length > 0) {
+            console.log("找到", data.history_times.length, "个历史时间点");
+
             // 遍历每个历史时间点，添加到下拉选择器中
-            data.history_times.forEach(item => {
+            data.history_times.forEach((item, index) => {
                 const option = document.createElement('option');
-                // 兼容新旧表结构
-                option.value = item.time_id || item.column_name;
-                option.textContent = item.query_time + (item.description ? ` (${item.description})` : '');
+
+                // 确保有效的time_id值
+                if (item.time_id) {
+                    option.value = item.time_id;
+                    console.log(`时间点${index + 1}: ID=${item.time_id}, 显示=${item.query_time}`);
+                } else if (item.column_name) {
+                    option.value = item.column_name;
+                    console.log(`时间点${index + 1}: ID=${item.column_name}, 显示=${item.query_time}`);
+                } else {
+                    console.warn(`警告: 时间点${index + 1}没有有效的ID:`, item);
+                    option.value = `date_${index}`;  // 使用索引作为后备值
+                }
+
+                // 设置显示文本
+                option.textContent = item.query_time;
+                if (item.description) {
+                    option.textContent += ` (${item.description})`;
+                }
+
                 historySelector.appendChild(option);
             });
         } else {
+            console.warn("API没有返回历史时间点:", data);
+
             // 如果没有历史数据，添加一个禁用的提示选项
             const option = document.createElement('option');
             option.disabled = true;

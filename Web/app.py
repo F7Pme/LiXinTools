@@ -160,6 +160,8 @@ def get_history_times():
         record_count = result['count'] if result else 0
         debug_info['total_records'] = record_count
         
+        print(f"开始查询历史时间点，共有 {record_count} 条记录")
+        
         # 直接按日期分组查询
         cursor.execute("""
             SELECT 
@@ -177,8 +179,10 @@ def get_history_times():
         
         date_points = cursor.fetchall()
         debug_info['query_result_count'] = len(date_points)
+        print(f"查询到 {len(date_points)} 个不同的日期")
         
         if not date_points:
+            print("没有找到任何日期记录")
             return jsonify({
                 'history_times': [],
                 'debug_info': debug_info,
@@ -196,14 +200,16 @@ def get_history_times():
             # 格式化为前端显示的字符串
             date_str = date_value.strftime('%Y-%m-%d')
             
-            # 构建时间点记录 - 确保time_id不为undefined
+            # 确保time_id不为undefined
             time_record = {
-                'time_id': date_id,        # 使用日期ID作为time_id
-                'query_time': date_str,    # 显示友好的日期
+                'time_id': date_id,
+                'query_time': date_str,
                 'description': f"电量记录 ({record_count}条)",
                 'record_count': record_count,
-                'id': 0                    # 默认ID
+                'id': 0
             }
+            
+            print(f"日期点: date_id={date_id}, date_str={date_str}, 记录数={record_count}")
             
             # 尝试从query_history找到对应的描述
             try:
@@ -221,23 +227,38 @@ def get_history_times():
                     time_record['id'] = history_record['id']
                     if history_record['description']:
                         time_record['description'] = f"{history_record['description']} ({record_count}条)"
+                    print(f"  找到查询历史记录: id={history_record['id']}, 描述={history_record['description']}")
             except Exception as qh_error:
                 debug_info['query_history_error'] = str(qh_error)
+                print(f"  查询历史记录出错: {str(qh_error)}")
             
             valid_times.append(time_record)
             
         cursor.close()
         conn.close()
         
+        # 打印返回的数据结构示例
+        if valid_times:
+            print("返回的第一个时间点数据示例:")
+            print(f"  time_id = {valid_times[0]['time_id']}")
+            print(f"  query_time = {valid_times[0]['query_time']}")
+            print(f"  description = {valid_times[0]['description']}")
+        
+        print(f"共返回 {len(valid_times)} 个有效时间点")
+        
         # 返回结果
-        return jsonify({
+        result = {
             'history_times': valid_times,
             'count': len(valid_times),
             'debug_info': debug_info
-        })
+        }
+        
+        # 返回结果
+        return jsonify(result)
         
     except Exception as e:
         # 捕获并返回详细错误信息
+        print(f"获取历史时间点出错: {str(e)}")
         error_info = {
             'error': str(e),
             'location': 'get_history_times',
