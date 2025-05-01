@@ -149,6 +149,9 @@
                         target="_blank">沪ICP备2025124588号-1</a></p>
                 <!-- 调试按钮 -->
                 <button id="debug-btn" class="btn btn-sm btn-outline-secondary mt-2">调试数据库</button>
+                <!-- 临时调试按钮 -->
+                <button id="test-api-btn" class="btn btn-sm btn-outline-info mt-2 ms-2">测试API</button>
+                <button id="refresh-selector-btn" class="btn btn-sm btn-outline-success mt-2 ms-2">刷新选择器</button>
             </div>
         </footer>
     </div>
@@ -306,6 +309,112 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <!-- 临时调试脚本 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 测试API按钮
+            document.getElementById('test-api-btn').addEventListener('click', async function () {
+                try {
+                    const response = await fetch('/api/history_times');
+                    const data = await response.json();
+                    console.log('API返回数据:', data);
+
+                    // 在页面上显示结果
+                    const pre = document.createElement('pre');
+                    pre.style.textAlign = 'left';
+                    pre.style.maxHeight = '200px';
+                    pre.style.overflow = 'auto';
+                    pre.style.padding = '10px';
+                    pre.style.backgroundColor = '#f5f5f5';
+                    pre.style.borderRadius = '5px';
+                    pre.textContent = JSON.stringify(data, null, 2);
+
+                    // 创建模态框显示
+                    const modalDiv = document.createElement('div');
+                    modalDiv.className = 'modal fade';
+                    modalDiv.id = 'apiResultModal';
+                    modalDiv.innerHTML = `
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">API返回数据</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body" id="api-result-content"></div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modalDiv);
+                    document.getElementById('api-result-content').appendChild(pre);
+
+                    // 显示模态框
+                    const modal = new bootstrap.Modal(document.getElementById('apiResultModal'));
+                    modal.show();
+
+                } catch (e) {
+                    console.error('API调用出错:', e);
+                    alert('API调用出错: ' + e.message);
+                }
+            });
+
+            // 刷新选择器按钮
+            document.getElementById('refresh-selector-btn').addEventListener('click', function () {
+                // 直接创建一个新的选择器替换现有的
+                const historySelector = document.getElementById('history-selector');
+                if (!historySelector) {
+                    alert('找不到历史选择器元素!');
+                    return;
+                }
+
+                // 备份父元素和旧选择器的位置
+                const parentElement = historySelector.parentNode;
+                const nextSibling = historySelector.nextSibling;
+
+                // 创建新选择器
+                const newSelector = document.createElement('select');
+                newSelector.id = 'history-selector';
+                newSelector.className = 'form-select form-select-sm';
+
+                // 添加最新数据选项
+                const latestOption = document.createElement('option');
+                latestOption.value = 'latest';
+                latestOption.textContent = '最新数据';
+                latestOption.selected = true;
+                newSelector.appendChild(latestOption);
+
+                // 将新选择器插入到DOM中
+                if (nextSibling) {
+                    parentElement.insertBefore(newSelector, nextSibling);
+                } else {
+                    parentElement.appendChild(newSelector);
+                }
+
+                // 移除旧选择器
+                historySelector.remove();
+
+                // 添加事件监听器
+                newSelector.addEventListener('change', function () {
+                    const selectedValue = newSelector.value;
+                    console.log('选择器变更:', selectedValue);
+
+                    if (selectedValue === 'latest') {
+                        window.fetchElectricityData();
+                    } else {
+                        window.fetchHistoryData(selectedValue);
+                    }
+                });
+
+                // 重新获取历史数据
+                window.fetchHistoryTimes();
+
+                console.log('选择器已刷新');
+            });
+        });
+    </script>
 </body>
 
 </html>
