@@ -547,14 +547,26 @@ async function fetchHistoryTimes() {
             console.log(`找到 ${data.history_times.length} 个历史时间点`);
 
             data.history_times.forEach((item, index) => {
+                // 详细记录每个项目的数据
+                console.log(`历史时间点项目 #${index}:`, item);
+
                 // 确保有time_id值
                 if (!item.time_id) {
                     console.warn(`时间点 #${index} 没有time_id:`, item);
                     return; // 跳过此项
                 }
 
+                // 确保time_id不是undefined字符串
+                const timeIdValue = item.time_id === 'undefined' ?
+                    `time_${index}_${new Date().getTime()}` : // 生成备用ID
+                    item.time_id;
+
+                // 创建新的选项
                 const option = document.createElement('option');
-                option.value = item.time_id;
+                option.value = timeIdValue;
+
+                // 记录每个time_id
+                console.log(`设置选项 #${index} 的value为: ${option.value}`);
 
                 const displayText = item.query_time +
                     (item.description ? ` (${item.description})` : '');
@@ -607,19 +619,51 @@ async function fetchHistoryTimes() {
 
         // 5. 添加变更事件监听器
         newSelector.addEventListener('change', function () {
-            const selectedValue = this.value;
-            console.log(`选择器变更: ${selectedValue}`);
+            try {
+                // 确保能取到正确的值
+                const selectedValue = this.value;
+                console.log(`选择器变更: ${selectedValue}`);
 
-            // 打印选中选项的详细信息
-            const selectedIndex = this.selectedIndex;
-            const selectedOption = this.options[selectedIndex];
-            console.log(`选中选项详情: index=${selectedIndex}, value=${selectedOption.value}, text=${selectedOption.textContent}`);
+                // 打印选中选项的详细信息
+                const selectedIndex = this.selectedIndex;
+                const selectedOption = this.options[selectedIndex];
+                console.log(`选中选项详情: index=${selectedIndex}, value=${selectedOption.value}, text=${selectedOption.textContent}`);
 
-            if (selectedValue === 'latest') {
-                fetchElectricityData();
-            } else {
-                console.log("准备获取历史数据，timeId =", selectedValue);
-                fetchHistoryData(selectedValue);
+                // 打印所有选项，验证是否有问题
+                console.log('所有选项:');
+                for (let i = 0; i < this.options.length; i++) {
+                    const option = this.options[i];
+                    console.log(`  选项 #${i}: value=${option.value}, text=${option.textContent}`);
+                }
+
+                // 重新获取一次当前值，确保没有变化
+                const currentValue = this.value;
+                console.log(`再次检查当前值: ${currentValue}`);
+
+                // 额外安全检查 - 如果value不存在或是空，使用索引获取值
+                if (!currentValue || currentValue === 'undefined') {
+                    const fallbackValue = selectedOption ? selectedOption.value : null;
+                    console.log(`使用备选值: ${fallbackValue}`);
+
+                    if (fallbackValue && fallbackValue !== 'undefined') {
+                        if (fallbackValue === 'latest') {
+                            fetchElectricityData();
+                        } else {
+                            console.log("准备获取历史数据，使用备选timeId =", fallbackValue);
+                            fetchHistoryData(fallbackValue);
+                        }
+                        return;
+                    }
+                }
+
+                if (selectedValue === 'latest') {
+                    fetchElectricityData();
+                } else {
+                    console.log("准备获取历史数据，timeId =", selectedValue);
+                    fetchHistoryData(selectedValue);
+                }
+            } catch (error) {
+                console.error("选择器变更事件处理出错:", error);
             }
         });
 
@@ -661,9 +705,23 @@ async function fetchHistoryTimes() {
 async function fetchHistoryData(timeId) {
     try {
         console.log("fetchHistoryData函数调用，接收到timeId:", timeId);
+
+        // 直接从选择器获取当前选中的值，确保使用正确的timeId
+        const selector = document.getElementById('history-selector');
+        if (selector) {
+            const selectedValue = selector.value;
+            console.log("从选择器读取的值:", selectedValue);
+
+            // 如果传入的timeId为undefined或null，使用选择器中的值
+            if (!timeId || timeId === 'undefined' || timeId === 'null') {
+                timeId = selectedValue;
+                console.log("使用选择器中的值替代:", timeId);
+            }
+        }
+
         console.log("timeId类型:", typeof timeId);
 
-        // 检查timeId是否为undefined或null
+        // 检查timeId是否为undefined或null，或者是"latest"
         if (!timeId || timeId === 'undefined' || timeId === 'null') {
             console.error("无效的时间ID:", timeId);
 
@@ -682,6 +740,13 @@ async function fetchHistoryData(timeId) {
 
             // 显示错误信息
             updateDisplayTime('无效的查询日期', true);
+            return;
+        }
+
+        // 如果是latest，则获取最新数据
+        if (timeId === 'latest') {
+            console.log("选择了最新数据，调用fetchElectricityData");
+            fetchElectricityData();
             return;
         }
 
