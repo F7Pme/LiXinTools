@@ -561,77 +561,30 @@ async function fetchHistoryTimes() {
         // 添加选择器事件监听
         newSelector.addEventListener('change', function () {
             const value = this.value;
-            console.log(`选择器变更事件触发，选择器DOM元素:`, this);
-            console.log(`选择器当前值: [${value}], 类型: ${typeof value}, 长度: ${value ? value.length : 0}`);
-            console.log(`选中索引: ${this.selectedIndex}, 选项总数: ${this.options.length}`);
+            console.log(`选择器变更: 选择了 [${value}]`);
+            console.log(`选中的值类型: ${typeof value}, 长度: ${value ? value.length : 'undefined'}`);
 
-            if (this.selectedIndex >= 0) {
-                const selectedOption = this.options[this.selectedIndex];
-                console.log(`选中的选项: value=[${selectedOption.value}], text=[${selectedOption.textContent}]`);
+            if (!value) {
+                console.error("选择器选中值为空");
+                return;
             }
+
+            // 记录选中的选项详情
+            const selectedOption = this.options[this.selectedIndex];
+            console.log(`选中的选项: index=${this.selectedIndex}, text='${selectedOption.textContent}'`);
 
             if (value === 'latest') {
                 fetchElectricityData();
             } else if (value && value !== 'undefined') {
-                console.log(`处理选择器时间ID: ${value}`);
+                // 确保值是纯数字
+                if (!/^\d+$/.test(value)) {
+                    console.error(`选中的值不是纯数字: ${value}`);
+                    alert(`选择器值格式不正确: ${value} (应为纯数字)`);
+                    return;
+                }
 
-                // 显示加载状态
-                const roomDataElement = document.getElementById('room-data');
-                roomDataElement.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="text-center py-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">加载中...</span>
-                            </div>
-                            <p class="mt-3">正在加载历史数据...</p>
-                            <p class="small text-muted">时间ID: ${value}</p>
-                        </td>
-                    </tr>
-                `;
-
-                // 使用encodeURIComponent编码time_id，避免URL问题
-                const encodedTimeId = encodeURIComponent(value);
-                console.log(`编码后的时间ID: ${encodedTimeId}`);
-
-                // 直接构造API URL并获取数据
-                fetch(`/api/history_data/${encodedTimeId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log("API返回数据:", data);
-
-                        // 检查是否有错误
-                        if (data.error) {
-                            console.error("API返回错误:", data.error);
-                            roomDataElement.innerHTML = `
-                                <tr>
-                                    <td colspan="4" class="text-center py-5">
-                                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                                        <p class="mt-3">获取历史数据错误: ${data.error}</p>
-                                        <p class="small text-muted">时间ID: ${value}</p>
-                                        ${data.debug_info ? `<p class="small text-muted">调试信息: ${JSON.stringify(data.debug_info)}</p>` : ''}
-                                    </td>
-                                </tr>
-                            `;
-                            updateDisplayTime('获取失败', true);
-                            return;
-                        }
-
-                        // 应用历史数据
-                        window.applyHistoryData(data, value);
-                    })
-                    .catch(error => {
-                        console.error("API请求失败:", error);
-                        roomDataElement.innerHTML = `
-                            <tr>
-                                <td colspan="4" class="text-center py-5">
-                                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                                    <p class="mt-3">获取历史数据失败: ${error.message}</p>
-                                    <p class="small text-muted">网络或服务器错误</p>
-                                </td>
-                            </tr>
-                        `;
-                        updateDisplayTime('获取失败', true);
-                    });
+                console.log(`调用fetchHistoryData，参数: ${value}`);
+                fetchHistoryData(value);
             } else {
                 console.error(`选择器值无效: ${value}`);
             }
@@ -654,25 +607,21 @@ async function fetchHistoryTimes() {
 
             data.history_times.forEach((item, index) => {
                 // 验证time_id
-                if (!item.time_id || item.time_id === 'undefined' || item.time_id === '%Y%m%d%H%i') {
+                if (!item.time_id || item.time_id === 'undefined') {
                     console.warn(`跳过无效的时间点 #${index}:`, item);
                     return;
                 }
 
-                // 确保time_id是字符串且格式正确
-                const timeIdValue = String(item.time_id);
-
-                // 检查time_id格式是否正确（至少是一个可用的数字ID）
-                if (!/^\d{8,}$/.test(timeIdValue)) {
-                    console.warn(`跳过格式不正确的时间点 #${index}, time_id=[${timeIdValue}]`);
+                // 确保time_id是字符串并且只包含数字
+                const timeIdStr = String(item.time_id).trim();
+                if (!/^\d+$/.test(timeIdStr)) {
+                    console.warn(`跳过非数字time_id #${index}: ${timeIdStr}`, item);
                     return;
                 }
 
-                console.log(`处理有效时间点 #${index}, time_id=[${timeIdValue}]`);
-
                 // 创建选项
                 const option = document.createElement('option');
-                option.value = timeIdValue;
+                option.value = timeIdStr;
 
                 // 设置显示文本
                 let displayText = item.query_time;
@@ -755,17 +704,125 @@ async function fetchHistoryTimes() {
 }
 
 // 获取指定时间点的历史电量数据
-window.applyHistoryData = function (data, timeId) {
+async function fetchHistoryData(timeId) {
     try {
+        console.log("--------- 开始获取历史数据 ---------");
+        console.log("获取历史数据函数被调用，参数timeId =", timeId);
+        console.log("timeId的类型:", typeof timeId);
+        console.log("timeId的长度:", timeId ? timeId.length : 'undefined');
+
+        if (timeId) {
+            console.log("timeId是否是数字:", /^\d+$/.test(timeId));
+            console.log("timeId的每个字符:", Array.from(timeId).map(c => `${c}(${c.charCodeAt(0)})`).join(', '));
+        }
+
+        // 备份原始timeId
+        const originalTimeId = timeId;
+
+        // 检查参数，如果无效，尝试从选择器获取
+        if (!timeId || timeId === 'undefined' || timeId === 'null') {
+            const selector = document.getElementById('history-selector');
+            if (selector && selector.value && selector.value !== 'latest' && selector.value !== 'undefined') {
+                timeId = selector.value;
+                console.log("从选择器获取timeId =", timeId);
+            } else {
+                console.error("无法获取有效的timeId");
+
+                // 显示错误信息
+                const roomDataElement = document.getElementById('room-data');
+                roomDataElement.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-5">
+                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                            <p class="mt-3">无效的时间ID</p>
+                            <p class="small text-muted">原始timeId = ${originalTimeId}</p>
+                            <p class="small text-muted">选择器值 = ${selector ? selector.value : '选择器不存在'}</p>
+                        </td>
+                    </tr>
+                `;
+                updateDisplayTime('无效的查询日期', true);
+                return;
+            }
+        }
+
+        // 如果是latest，则获取最新数据
+        if (timeId === 'latest') {
+            console.log("选择了最新数据，调用fetchElectricityData()");
+            fetchElectricityData();
+            return;
+        }
+
+        // 显示加载状态
+        const roomDataElement = document.getElementById('room-data');
+        roomDataElement.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-3">正在加载历史数据...</p>
+                    <p class="small text-muted">时间ID: ${timeId}</p>
+                </td>
+            </tr>
+        `;
+
+        console.log(`准备请求API: /api/history_data/${timeId}`);
+
+        // 清理和编码timeId
+        const cleanedTimeId = String(timeId).trim();
+        // 确保timeId全是数字
+        if (!/^\d+$/.test(cleanedTimeId)) {
+            console.error(`timeId不是纯数字，无法继续: ${cleanedTimeId}`);
+            // 显示错误信息
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                        <p class="mt-3">时间ID格式不正确: 必须是纯数字</p>
+                        <p class="small text-muted">时间ID: ${cleanedTimeId}</p>
+                    </td>
+                </tr>
+            `;
+            updateDisplayTime('无效的查询日期', true);
+            return;
+        }
+
+        const encodedTimeId = encodeURIComponent(cleanedTimeId);
+        console.log(`编码后的timeId: ${encodedTimeId}`);
+
+        // 请求历史数据
+        const response = await fetch(`/api/history_data/${encodedTimeId}`);
+        const data = await response.json();
+
+        console.log("API返回数据:", data);
+
+        // 检查是否有错误
+        if (data.error) {
+            console.error("API返回错误:", data.error);
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                        <p class="mt-3">获取历史数据错误: ${data.error}</p>
+                        <p class="small text-muted">时间ID: ${timeId}</p>
+                        ${data.debug_info ? `<p class="small text-muted">调试信息: ${JSON.stringify(data.debug_info)}</p>` : ''}
+                    </td>
+                </tr>
+            `;
+            updateDisplayTime('获取失败', true);
+            return;
+        }
+
         // 确保query_time存在
         const queryTime = data.query_time || '未知时间';
+        console.log("显示时间:", queryTime);
 
         // 更新时间显示
         updateDisplayTime(queryTime, true);
 
         // 检查数据
         if (data.data && data.data.length > 0) {
-            console.log(`应用 ${data.data.length} 条数据到表格`);
+            console.log(`获取到 ${data.data.length} 条数据`);
 
             // 存储数据用于搜索和排序
             window.originalRoomData = data.data;
@@ -775,10 +832,8 @@ window.applyHistoryData = function (data, timeId) {
 
             // 显示排序后的数据
             displayRoomData(sortedData);
-            return true;
         } else {
-            console.log("没有数据可应用");
-            const roomDataElement = document.getElementById('room-data');
+            console.log("没有获取到数据");
             roomDataElement.innerHTML = `
                 <tr>
                     <td colspan="4" class="text-center py-5">
@@ -788,11 +843,23 @@ window.applyHistoryData = function (data, timeId) {
                     </td>
                 </tr>
             `;
-            return false;
         }
+
+        console.log("--------- 历史数据获取完成 ---------");
     } catch (error) {
-        console.error('应用历史数据出错:', error);
-        return false;
+        console.error('获取历史电量数据出错:', error);
+
+        const roomDataElement = document.getElementById('room-data');
+        roomDataElement.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-5">
+                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                    <p class="mt-3">获取历史数据失败: ${error.message}</p>
+                </td>
+            </tr>
+        `;
+
+        updateDisplayTime('获取失败', true);
     }
 }
 
@@ -1515,4 +1582,67 @@ function createElectricityChart(historyData) {
     } catch (error) {
         console.error('创建电量图表时出错:', error);
     }
-} 
+}
+
+// 暴露一个测试函数，方便在控制台中测试
+window.testHistoryAPI = function (timeId) {
+    console.log(`直接测试API: /api/history_data/${timeId}`);
+
+    // 创建一个新的事件，在页面中显示
+    const testEvent = document.createElement('div');
+    testEvent.className = 'alert alert-info';
+    testEvent.style.position = 'fixed';
+    testEvent.style.top = '10px';
+    testEvent.style.right = '10px';
+    testEvent.style.zIndex = '9999';
+    testEvent.style.maxWidth = '400px';
+    testEvent.innerHTML = `
+        <strong>API测试:</strong> 
+        <p>正在测试timeId: ${timeId}</p>
+        <div class="progress mt-2">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" 
+                 style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+    `;
+    document.body.appendChild(testEvent);
+
+    fetch(`/api/history_data/${timeId}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('API返回数据:', data);
+
+            // 更新测试事件显示
+            testEvent.className = data.error ? 'alert alert-danger' : 'alert alert-success';
+            testEvent.innerHTML = `
+                <strong>API测试结果:</strong> 
+                <p>timeId: ${timeId}</p>
+                ${data.error ?
+                    `<p class="text-danger">错误: ${data.error}</p>` :
+                    `<p class="text-success">成功! 获取了 ${data.data ? data.data.length : 0} 条记录</p>`}
+                <pre style="max-height: 200px; overflow: auto;">${JSON.stringify(data.debug_info || {}, null, 2)}</pre>
+                <button class="btn btn-sm btn-secondary" id="close-test-event">关闭</button>
+            `;
+
+            // 添加关闭按钮事件
+            document.getElementById('close-test-event').addEventListener('click', function () {
+                document.body.removeChild(testEvent);
+            });
+        })
+        .catch(error => {
+            console.error('API测试出错:', error);
+
+            // 更新测试事件显示
+            testEvent.className = 'alert alert-danger';
+            testEvent.innerHTML = `
+                <strong>API测试错误:</strong> 
+                <p>timeId: ${timeId}</p>
+                <p class="text-danger">${error.message}</p>
+                <button class="btn btn-sm btn-secondary" id="close-test-event">关闭</button>
+            `;
+
+            // 添加关闭按钮事件
+            document.getElementById('close-test-event').addEventListener('click', function () {
+                document.body.removeChild(testEvent);
+            });
+        });
+}; 

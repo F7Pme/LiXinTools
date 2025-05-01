@@ -438,24 +438,28 @@
 
                     // 添加应用到选择器按钮事件
                     document.getElementById('apply-to-selector').addEventListener('click', function () {
+                        if (data.error) {
+                            alert('API返回错误，无法应用到选择器');
+                            return;
+                        }
+
+                        // 直接调用显示历史数据函数
                         try {
-                            if (data.error) {
-                                alert('API返回错误，无法应用到选择器');
-                                return;
-                            }
+                            window.originalRoomData = data.data || [];
 
-                            // 检查函数是否存在
-                            if (typeof window.applyHistoryData !== 'function') {
-                                console.error('applyHistoryData函数未定义，请刷新页面');
-                                alert('应用函数未定义，请刷新页面后重试');
-                                return;
-                            }
+                            if (data.data && data.data.length > 0) {
+                                // 应用当前排序设置
+                                const sortedData = window.sortRoomData([...window.originalRoomData]);
 
-                            // 直接调用应用历史数据函数
-                            if (window.applyHistoryData(data, timeId)) {
+                                // 显示排序后的数据
+                                window.displayRoomData(sortedData);
+
+                                // 更新时间显示
+                                window.updateDisplayTime(data.query_time || '未知时间', true);
+
                                 alert('数据已成功应用到表格中');
                             } else {
-                                alert('应用数据失败，请查看控制台日志');
+                                alert('API返回的数据为空，无法应用');
                             }
                         } catch (e) {
                             console.error('应用数据出错:', e);
