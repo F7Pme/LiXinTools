@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 获取楼栋数据
     fetchBuildingData();
 
-    // 获取历史电量查询时间点列表
+    // 获取历史电量查询时间点
     fetchHistoryTimes();
 
     // 搜索功能
@@ -29,17 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             searchRooms();
-        }
-    });
-
-    // 历史电量查询功能
-    const historySelector = document.getElementById('history-selector');
-    historySelector.addEventListener('change', () => {
-        const selectedValue = historySelector.value;
-        if (selectedValue === 'latest') {
-            fetchElectricityData();
-        } else {
-            fetchHistoryData(selectedValue);
         }
     });
 
@@ -531,63 +520,97 @@ async function fetchBuildingData() {
 // 获取历史电量查询时间点
 async function fetchHistoryTimes() {
     try {
+        const historySelector = document.getElementById('history-selector');
+
+        // 完全重建选择器
+        // 1. 创建一个新的选择器元素
+        const newSelector = document.createElement('select');
+        newSelector.id = 'history-selector';
+        newSelector.className = 'form-select form-select-sm';
+
+        // 2. 添加"最新数据"选项
+        const latestOption = document.createElement('option');
+        latestOption.value = 'latest';
+        latestOption.textContent = '最新数据';
+        latestOption.selected = true;
+        newSelector.appendChild(latestOption);
+
+        // 3. 获取历史时间点数据
         const response = await fetch('/api/history_times');
         const data = await response.json();
 
-        const historySelector = document.getElementById('history-selector');
+        // 详细日志
+        console.log("API响应:", data);
 
-        // 清空现有选项（除了"最新数据"）
-        while (historySelector.options.length > 1) {
-            historySelector.remove(1);
-        }
-
-        // 添加详细的调试日志，查看完整的API响应
-        console.log("历史时间点API响应:", JSON.stringify(data, null, 2));
-
+        // 4. 添加历史时间点选项
         if (data.history_times && data.history_times.length > 0) {
-            console.log("找到", data.history_times.length, "个历史时间点");
+            console.log(`找到 ${data.history_times.length} 个历史时间点`);
 
-            // 遍历每个历史时间点，添加到下拉选择器中
             data.history_times.forEach((item, index) => {
+                // 确保有time_id值
+                if (!item.time_id) {
+                    console.warn(`时间点 #${index} 没有time_id:`, item);
+                    return; // 跳过此项
+                }
+
                 const option = document.createElement('option');
+                option.value = item.time_id;
 
-                // 确保有效的time_id值
-                if (item.time_id) {
-                    option.value = item.time_id;
-                    console.log(`时间点${index + 1}: ID=${item.time_id}, 显示=${item.query_time}`);
-                } else if (item.column_name) {
-                    option.value = item.column_name;
-                    console.log(`时间点${index + 1}: ID=${item.column_name}, 显示=${item.query_time}`);
-                } else {
-                    console.warn(`警告: 时间点${index + 1}没有有效的ID:`, item);
-                    option.value = `date_${index}`;  // 使用索引作为后备值
-                }
+                const displayText = item.query_time +
+                    (item.description ? ` (${item.description})` : '');
+                option.textContent = displayText;
 
-                // 设置显示文本
-                option.textContent = item.query_time;
-                if (item.description) {
-                    option.textContent += ` (${item.description})`;
-                }
+                newSelector.appendChild(option);
 
-                historySelector.appendChild(option);
+                console.log(`添加选项: value=${option.value}, text=${option.textContent}`);
             });
         } else {
-            console.warn("API没有返回历史时间点:", data);
+            // 添加"暂无历史数据"选项
+            const noDataOption = document.createElement('option');
+            noDataOption.disabled = true;
+            noDataOption.textContent = '暂无历史数据';
+            newSelector.appendChild(noDataOption);
 
-            // 如果没有历史数据，添加一个禁用的提示选项
-            const option = document.createElement('option');
-            option.disabled = true;
-            option.textContent = '暂无历史数据';
-            historySelector.appendChild(option);
+            console.warn("没有历史时间点数据");
         }
+
+        // 5. 添加变更事件监听器
+        newSelector.addEventListener('change', () => {
+            const selectedValue = newSelector.value;
+            console.log(`选择了: ${selectedValue}`);
+
+            if (selectedValue === 'latest') {
+                fetchElectricityData();
+            } else {
+                fetchHistoryData(selectedValue);
+            }
+        });
+
+        // 6. 替换原来的选择器
+        if (historySelector && historySelector.parentNode) {
+            historySelector.parentNode.replaceChild(newSelector, historySelector);
+            console.log("选择器已替换");
+        } else {
+            console.error("找不到原始选择器元素");
+        }
+
     } catch (error) {
         console.error('获取历史时间点出错:', error);
-        // 添加一个错误提示选项
+
+        // 如果出错，至少确保选择器有一个错误选项
         const historySelector = document.getElementById('history-selector');
-        const option = document.createElement('option');
-        option.disabled = true;
-        option.textContent = '加载失败';
-        historySelector.appendChild(option);
+        if (historySelector) {
+            // 清除现有选项（除了"最新数据"）
+            while (historySelector.options.length > 1) {
+                historySelector.remove(1);
+            }
+
+            // 添加错误选项
+            const errorOption = document.createElement('option');
+            errorOption.disabled = true;
+            errorOption.textContent = '加载失败: ' + error.message;
+            historySelector.appendChild(errorOption);
+        }
     }
 }
 
