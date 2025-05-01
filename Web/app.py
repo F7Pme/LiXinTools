@@ -216,7 +216,7 @@ def get_history_times():
                 cursor.execute("""
                     SELECT id, description 
                     FROM query_history 
-                    WHERE DATE_FORMAT(query_time, '%Y%m%d') = %s
+                    WHERE DATE_FORMAT(query_time, '%%Y%%m%%d') = %s
                     LIMIT 1
                 """, (date_id,))
                 
