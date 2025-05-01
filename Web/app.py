@@ -160,128 +160,50 @@ def get_history_times():
         record_count = result['count'] if result else 0
         debug_info['total_records'] = record_count
         
-        if record_count == 0:
-            debug_info['error'] = '数据表electricity_records中没有记录'
+        # 直接按日期分组查询
+        cursor.execute("""
+            SELECT 
+                DATE_FORMAT(query_time, '%Y%m%d') AS date_id,
+                DATE(query_time) AS date_value,
+                COUNT(*) AS record_count
+            FROM 
+                electricity_records
+            GROUP BY 
+                date_id, date_value
+            ORDER BY 
+                date_value DESC
+            LIMIT 50
+        """)
+        
+        date_points = cursor.fetchall()
+        debug_info['query_result_count'] = len(date_points)
+        
+        if not date_points:
             return jsonify({
                 'history_times': [],
-                'debug_info': debug_info
+                'debug_info': debug_info,
+                'error': '没有找到任何日期记录'
             })
-
-        # 尝试获取不同的时间点
-        try:
-            # 注意：使用单引号而不是双引号作为MySQL格式字符串的参数
-            cursor.execute("""
-                SELECT 
-                    DATE_FORMAT(query_time, '%Y%m%d%H%i%s') AS time_id,
-                    DATE_FORMAT(query_time, '%Y-%m-%d %H:%i:%s') AS formatted_time, 
-                    COUNT(*) AS record_count
-                FROM 
-                    electricity_records
-                GROUP BY 
-                    DATE(query_time), HOUR(query_time), MINUTE(query_time)
-                ORDER BY 
-                    query_time DESC
-                LIMIT 50
-            """)
-            
-            time_points = cursor.fetchall()
-            debug_info['query_result_count'] = len(time_points)
-            
-            if not time_points:
-                # 尝试使用简化的查询
-                cursor.execute("""
-                    SELECT DISTINCT
-                        DATE_FORMAT(query_time, '%Y%m%d%H%i%s') AS time_id,
-                        DATE_FORMAT(query_time, '%Y-%m-%d %H:%i:%s') AS formatted_time
-                    FROM 
-                        electricity_records
-                    ORDER BY 
-                        query_time DESC
-                    LIMIT 50
-                """)
-                time_points = cursor.fetchall()
-                
-                # 如果仍然没有结果，添加计数信息
-                if time_points:
-                    for point in time_points:
-                        time_id = point['time_id']
-                        cursor.execute("""
-                            SELECT COUNT(*) AS count 
-                            FROM electricity_records 
-                            WHERE DATE_FORMAT(query_time, '%Y%m%d%H%i%s') = %s
-                        """, (time_id,))
-                        count_result = cursor.fetchone()
-                        point['record_count'] = count_result['count'] if count_result else 0
-                else:
-                    debug_info['error'] = 'SQL查询没有返回结果'
-                    return jsonify({
-                        'history_times': [],
-                        'debug_info': debug_info
-                    })
-        except Exception as sql_error:
-            debug_info['sql_error'] = str(sql_error)
-            
-            # 尝试最简单的查询
-            try:
-                cursor.execute("""
-                    SELECT DISTINCT DATE(query_time) AS date
-                    FROM electricity_records
-                    ORDER BY date DESC
-                    LIMIT 50
-                """)
-                date_points = cursor.fetchall()
-                
-                time_points = []
-                for date_point in date_points:
-                    date = date_point['date']
-                    time_id = date.strftime('%Y%m%d')
-                    formatted_time = date.strftime('%Y-%m-%d')
-                    
-                    cursor.execute("""
-                        SELECT COUNT(*) AS count
-                        FROM electricity_records
-                        WHERE DATE(query_time) = %s
-                    """, (date,))
-                    count_result = cursor.fetchone()
-                    record_count = count_result['count'] if count_result else 0
-                    
-                    time_points.append({
-                        'time_id': time_id,
-                        'formatted_time': formatted_time,
-                        'record_count': record_count
-                    })
-                
-                debug_info['fallback_query'] = '使用备用查询获取不同日期'
-                debug_info['fallback_result_count'] = len(time_points)
-                
-                if not time_points:
-                    debug_info['error'] = '备用查询没有返回结果'
-                    return jsonify({
-                        'history_times': [],
-                        'debug_info': debug_info
-                    })
-            except Exception as fallback_error:
-                debug_info['fallback_error'] = str(fallback_error)
-                return jsonify({
-                    'history_times': [],
-                    'debug_info': debug_info
-                })
-            
+        
         # 处理查询结果
         valid_times = []
-        debug_info['time_points'] = [] 
         
-        for point in time_points:
-            time_id = point['time_id']
-            formatted_time = point['formatted_time']
-            record_count = point['record_count'] if 'record_count' in point else 0
+        for point in date_points:
+            date_id = point['date_id']          # 格式：YYYYMMDD
+            date_value = point['date_value']    # 日期对象
+            record_count = point['record_count']
             
-            # 记录调试信息
-            debug_info['time_points'].append({
-                'time_id': time_id,
-                'formatted_time': formatted_time,
-                'record_count': record_count
-            })
+            # 格式化为前端显示的字符串
+            date_str = date_value.strftime('%Y-%m-%d')
+            
+            # 构建时间点记录 - 确保time_id不为undefined
+            time_record = {
+                'time_id': date_id,        # 使用日期ID作为time_id
+                'query_time': date_str,    # 显示友好的日期
+                'description': f"电量记录 ({record_count}条)",
+                'record_count': record_count,
+                'id': 0                    # 默认ID
+            }
             
             # 尝试从query_history找到对应的描述
             try:
@@ -290,28 +212,18 @@ def get_history_times():
                     FROM query_history 
                     WHERE DATE_FORMAT(query_time, '%Y%m%d') = %s
                     LIMIT 1
-                """, (time_id[:8],))
+                """, (date_id,))
                 
                 history_record = cursor.fetchone()
+                
+                # 如果找到了匹配的查询历史记录，更新描述信息
+                if history_record:
+                    time_record['id'] = history_record['id']
+                    if history_record['description']:
+                        time_record['description'] = f"{history_record['description']} ({record_count}条)"
             except Exception as qh_error:
                 debug_info['query_history_error'] = str(qh_error)
-                history_record = None
             
-            # 构建时间点记录
-            time_record = {
-                'time_id': time_id,
-                'query_time': formatted_time,
-                'record_count': record_count
-            }
-            
-            # 如果找到了匹配的查询历史记录，添加相关信息
-            if history_record:
-                time_record['id'] = history_record['id']
-                time_record['description'] = history_record['description'] or f"电量记录 ({record_count}条)"
-            else:
-                time_record['id'] = 0
-                time_record['description'] = f"电量记录 ({record_count}条)"
-                
             valid_times.append(time_record)
             
         cursor.close()
@@ -370,103 +282,45 @@ def get_history_data(time_id):
                 'debug_info': debug_info
             })
         
-        # 处理时间ID的不同格式
+        # 处理时间ID (YYYYMMDD格式)
         try:
-            # 如果是完整的时间ID (YYYYMMDDHHmmSS)
-            if len(time_id) >= 14:
-                # 构建查询条件 - 匹配精确时间点
-                year = time_id[0:4]
-                month = time_id[4:6]
-                day = time_id[6:8]
-                hour = time_id[8:10]
-                minute = time_id[10:12]
-                second = time_id[12:14] if len(time_id) >= 14 else "00"
-                
-                # 验证都是数字
-                if not all(segment.isdigit() for segment in [year, month, day, hour, minute, second]):
-                    raise ValueError("时间ID必须为数字")
-                
-                # 构建显示时间
-                formatted_time = f"{year}-{month}-{day} {hour}:{minute}:{second}"
-                debug_info['formatted_time'] = formatted_time
-                
-                # 查询精确时间点的数据
-                cursor.execute("""
-                    SELECT building, room, electricity
-                    FROM electricity_records
-                    WHERE DATE_FORMAT(query_time, '%Y%m%d%H%i%s') = %s
-                """, (time_id,))
-                
-                rows = cursor.fetchall()
-                
-                # 如果没有找到数据，尝试匹配日期部分
-                if not rows:
-                    debug_info['note'] = "精确时间点没有找到数据，尝试匹配日期部分"
-                    date_part = time_id[0:8]
-                    cursor.execute("""
-                        SELECT building, room, electricity,
-                               DATE_FORMAT(query_time, '%Y-%m-%d %H:%i:%s') AS query_time
-                        FROM electricity_records
-                        WHERE DATE_FORMAT(query_time, '%Y%m%d') = %s
-                        ORDER BY query_time DESC
-                    """, (date_part,))
-                    rows = cursor.fetchall()
+            # 验证time_id格式
+            if len(time_id) != 8 or not time_id.isdigit():
+                raise ValueError(f"时间ID必须是8位数字(YYYYMMDD): {time_id}")
             
-            # 如果是日期ID (YYYYMMDD)
-            elif len(time_id) == 8:
-                # 构建日期查询条件
-                year = time_id[0:4]
-                month = time_id[4:6]
-                day = time_id[6:8]
-                
-                # 验证都是数字
-                if not all(segment.isdigit() for segment in [year, month, day]):
-                    raise ValueError("日期必须为数字")
-                
-                # 构建显示时间
-                formatted_date = f"{year}-{month}-{day}"
-                debug_info['formatted_date'] = formatted_date
-                
-                # 查询符合日期的所有数据
-                cursor.execute("""
-                    SELECT building, room, electricity, 
-                           DATE_FORMAT(query_time, '%Y-%m-%d %H:%i:%s') AS query_time
-                    FROM electricity_records
-                    WHERE DATE_FORMAT(query_time, '%Y%m%d') = %s
-                    ORDER BY query_time DESC
-                """, (time_id,))
-                
-                rows = cursor.fetchall()
+            year = time_id[0:4]
+            month = time_id[4:6]
+            day = time_id[6:8]
             
-            # 其他情况，可能是部分日期(如YYYYMM)
-            else:
-                raise ValueError(f"不支持的时间ID格式: {time_id}")
+            # 构建显示时间
+            formatted_date = f"{year}-{month}-{day}"
+            debug_info['formatted_date'] = formatted_date
+            
+            # 查询该日期的所有数据
+            cursor.execute("""
+                SELECT building, room, electricity, 
+                       DATE_FORMAT(query_time, '%Y-%m-%d %H:%i:%s') AS query_time
+                FROM electricity_records
+                WHERE DATE_FORMAT(query_time, '%Y%m%d') = %s
+                ORDER BY query_time DESC
+            """, (time_id,))
+            
+            rows = cursor.fetchall()
             
             # 检查是否有数据
             if not rows:
                 debug_info['error'] = "查询没有返回任何数据"
                 return jsonify({
-                    'error': '未找到对应时间的记录',
-                    'query_time': time_id,
+                    'error': '未找到对应日期的记录',
+                    'query_time': formatted_date,
                     'debug_info': debug_info
                 })
             
             debug_info['rows_count'] = len(rows)
             
-            # 从查询结果获取查询时间
-            display_time = None
-            if 'query_time' in rows[0]:
-                # 找出最近的查询时间作为显示时间
-                times = [row['query_time'] for row in rows if 'query_time' in row]
-                if times:
-                    display_time = max(times)
-            
-            if not display_time:
-                if len(time_id) >= 14:
-                    display_time = formatted_time
-                else:
-                    display_time = f"{year}-{month}-{day}"
-            
+            # 获取该日期最新的时间作为显示时间
+            latest_times = [row['query_time'] for row in rows if row['query_time']]
+            display_time = max(latest_times) if latest_times else formatted_date
             debug_info['display_time'] = display_time
             
             # 处理数据，处理重复的房间号并确保电量值为浮点数
@@ -476,13 +330,13 @@ def get_history_data(time_id):
                 building = row['building']
                 room = row['room']
                 electricity = row['electricity']
-                row_time = row.get('query_time', display_time)
+                row_time = row['query_time']
                 
                 # 构建唯一键
                 key = f"{building}-{room}"
                 
                 try:
-                    electricity_value = float(electricity)
+                    electricity_value = float(electricity) if electricity is not None else 0.0
                     
                     # 如果该房间已存在记录，仅保留最新的数据
                     if key in building_room_data:
