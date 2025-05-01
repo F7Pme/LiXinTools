@@ -363,21 +363,28 @@
 
             // 刷新选择器按钮
             document.getElementById('refresh-selector-btn').addEventListener('click', function () {
-                // 直接创建一个新的选择器替换现有的
-                const historySelector = document.getElementById('history-selector');
-                if (!historySelector) {
-                    alert('找不到历史选择器元素!');
+                console.log('正在刷新选择器...');
+
+                // 查找历史选择器容器
+                const container = document.querySelector('.me-3');
+                if (!container) {
+                    alert('找不到历史选择器容器!');
                     return;
                 }
 
-                // 备份父元素和旧选择器的位置
-                const parentElement = historySelector.parentNode;
-                const nextSibling = historySelector.nextSibling;
+                // 清空容器内容
+                container.innerHTML = '';
+
+                // 创建选择器容器标记
+                const containerDiv = document.createElement('div');
+                containerDiv.className = 'history-selector-container';
+                container.appendChild(containerDiv);
 
                 // 创建新选择器
                 const newSelector = document.createElement('select');
                 newSelector.id = 'history-selector';
                 newSelector.className = 'form-select form-select-sm';
+                containerDiv.appendChild(newSelector);
 
                 // 添加最新数据选项
                 const latestOption = document.createElement('option');
@@ -386,30 +393,19 @@
                 latestOption.selected = true;
                 newSelector.appendChild(latestOption);
 
-                // 将新选择器插入到DOM中
-                if (nextSibling) {
-                    parentElement.insertBefore(newSelector, nextSibling);
+                // 临时添加加载中选项
+                const loadingOption = document.createElement('option');
+                loadingOption.disabled = true;
+                loadingOption.textContent = '加载中...';
+                newSelector.appendChild(loadingOption);
+
+                // 调用main.js中的函数重新获取历史时间点
+                if (typeof window.fetchHistoryTimes === 'function') {
+                    window.fetchHistoryTimes();
                 } else {
-                    parentElement.appendChild(newSelector);
+                    console.error('fetchHistoryTimes函数未定义，可能main.js未正确加载');
+                    alert('历史时间函数未找到，请刷新页面');
                 }
-
-                // 移除旧选择器
-                historySelector.remove();
-
-                // 添加事件监听器
-                newSelector.addEventListener('change', function () {
-                    const selectedValue = newSelector.value;
-                    console.log('选择器变更:', selectedValue);
-
-                    if (selectedValue === 'latest') {
-                        window.fetchElectricityData();
-                    } else {
-                        window.fetchHistoryData(selectedValue);
-                    }
-                });
-
-                // 重新获取历史数据
-                window.fetchHistoryTimes();
 
                 console.log('选择器已刷新');
             });
