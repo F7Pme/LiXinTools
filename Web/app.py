@@ -165,8 +165,8 @@ def get_history_times():
         # 按更细粒度的时间分组（年月日时分），而不是只按日期
         cursor.execute("""
             SELECT 
-                DATE_FORMAT(query_time, '%%Y%%m%%d%%H%%i') AS time_id,
-                DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i') AS formatted_time,
+                DATE_FORMAT(query_time, '%Y%m%d%H%i') AS time_id,
+                DATE_FORMAT(query_time, '%Y-%m-%d %H:%i') AS formatted_time,
                 COUNT(*) AS record_count,
                 MAX(query_time) AS latest_time
             FROM 
