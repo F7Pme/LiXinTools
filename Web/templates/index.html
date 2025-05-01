@@ -94,10 +94,15 @@
                             <div class="d-flex align-items-center">
                                 <!-- 历史电量查询选择器 -->
                                 <div class="me-3 history-selector-container">
-                                    <select id="history-selector" class="form-select form-select-sm">
-                                        <option value="latest" selected>最新数据</option>
-                                        <!-- 历史时间点将通过JavaScript动态加载 -->
-                                    </select>
+                                    <div class="input-group">
+                                        <select id="history-selector" class="form-select form-select-sm">
+                                            <option value="latest" selected>最新数据</option>
+                                            <!-- 历史时间点将通过JavaScript动态加载 -->
+                                        </select>
+                                        <button class="btn btn-sm btn-outline-primary" id="apply-history-selector">
+                                            <i class="bi bi-search"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="input-group" style="max-width: 300px;">
                                     <input type="text" class="form-control" id="room-search" placeholder="搜索房间...">
@@ -161,8 +166,14 @@
                     <div class="card-body">
                         <div class="mb-2">
                             <label for="test-time-id" class="form-label">Time ID:</label>
-                            <input type="text" id="test-time-id" class="form-control form-control-sm"
-                                value="202505012230">
+                            <div class="input-group">
+                                <input type="text" id="test-time-id" class="form-control form-control-sm"
+                                    value="202505012230">
+                                <button class="btn btn-sm btn-secondary" id="use-selector-value">使用选择器值</button>
+                            </div>
+                            <div class="form-text text-muted" id="current-selector-value">
+                                当前选择器值: <span>latest</span>
+                            </div>
                         </div>
                         <button id="test-direct-api" class="btn btn-sm btn-primary">直接测试API</button>
                     </div>

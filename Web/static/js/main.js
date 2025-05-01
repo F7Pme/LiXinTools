@@ -49,6 +49,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 添加宿舍历史电量图表模态框功能
     setupRoomHistoryFeature();
+
+    // 添加历史选择器查询按钮的点击事件
+    const applyHistorySelectorBtn = document.getElementById('apply-history-selector');
+    if (applyHistorySelectorBtn) {
+        applyHistorySelectorBtn.addEventListener('click', function () {
+            const selector = document.getElementById('history-selector');
+            if (!selector) {
+                console.error("找不到历史选择器元素");
+                return;
+            }
+
+            const selectedValue = selector.value;
+            console.log(`点击了查询按钮，选择器值: [${selectedValue}]`);
+
+            if (selectedValue === 'latest') {
+                fetchElectricityData();
+            } else if (selectedValue && selectedValue !== 'undefined') {
+                // 确保值是纯数字
+                if (!/^\d+$/.test(selectedValue)) {
+                    console.error(`选中的值不是纯数字: ${selectedValue}`);
+                    alert(`选择器值格式不正确: ${selectedValue} (应为纯数字)`);
+                    return;
+                }
+
+                console.log(`从按钮调用fetchHistoryData，参数: ${selectedValue}`);
+                fetchHistoryData(selectedValue);
+            } else {
+                console.error(`选择器值无效: ${selectedValue}`);
+                alert('请选择一个有效的历史时间点');
+            }
+        });
+    } else {
+        console.error("找不到历史选择器查询按钮");
+    }
+
+    // 添加"使用选择器值"按钮事件
+    const useSelectorValueBtn = document.getElementById('use-selector-value');
+    if (useSelectorValueBtn) {
+        useSelectorValueBtn.addEventListener('click', function () {
+            const selector = document.getElementById('history-selector');
+            const timeIdInput = document.getElementById('test-time-id');
+
+            if (selector && timeIdInput) {
+                const selectorValue = selector.value;
+                if (selectorValue && selectorValue !== 'latest' && selectorValue !== 'undefined') {
+                    timeIdInput.value = selectorValue;
+                    console.log(`已将选择器值 [${selectorValue}] 复制到测试输入框`);
+                } else {
+                    alert('当前选择器值不适合用于API测试');
+                }
+            }
+        });
+    }
+
+    // 监控选择器值变化，更新显示
+    const historySelector = document.getElementById('history-selector');
+    if (historySelector) {
+        const updateSelectorValue = function () {
+            const valueDisplay = document.querySelector('#current-selector-value span');
+            if (valueDisplay) {
+                valueDisplay.textContent = historySelector.value || 'undefined';
+            }
+        };
+
+        // 初始显示
+        updateSelectorValue();
+
+        // 监听变化
+        historySelector.addEventListener('change', updateSelectorValue);
+    }
 });
 
 // 设置表格排序功能
@@ -558,36 +628,17 @@ async function fetchHistoryTimes() {
         container.innerHTML = '';
         container.appendChild(newSelector);
 
-        // 添加选择器事件监听
+        // 添加选择器事件监听，仅记录选择的值，不触发API调用
         newSelector.addEventListener('change', function () {
             const value = this.value;
             console.log(`选择器变更: 选择了 [${value}]`);
             console.log(`选中的值类型: ${typeof value}, 长度: ${value ? value.length : 'undefined'}`);
 
-            if (!value) {
-                console.error("选择器选中值为空");
-                return;
-            }
-
             // 记录选中的选项详情
             const selectedOption = this.options[this.selectedIndex];
             console.log(`选中的选项: index=${this.selectedIndex}, text='${selectedOption.textContent}'`);
 
-            if (value === 'latest') {
-                fetchElectricityData();
-            } else if (value && value !== 'undefined') {
-                // 确保值是纯数字
-                if (!/^\d+$/.test(value)) {
-                    console.error(`选中的值不是纯数字: ${value}`);
-                    alert(`选择器值格式不正确: ${value} (应为纯数字)`);
-                    return;
-                }
-
-                console.log(`调用fetchHistoryData，参数: ${value}`);
-                fetchHistoryData(value);
-            } else {
-                console.error(`选择器值无效: ${value}`);
-            }
+            // 不再自动触发API调用，需要用户点击查询按钮
         });
 
         // 获取历史时间点数据
