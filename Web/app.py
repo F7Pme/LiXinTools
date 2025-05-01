@@ -293,7 +293,7 @@ def get_history_times():
             'debug_info': error_info
         })
 
-@app.route('/api/history_data/<time_id>')
+@app.route('/api/history_data/<path:time_id>')
 def get_history_data(time_id):
     """获取指定时间点的电量数据"""
     try:
@@ -310,7 +310,8 @@ def get_history_data(time_id):
         # 调试信息
         debug_info = {
             'time_id': time_id,
-            'time_id_type': type(time_id).__name__
+            'time_id_type': type(time_id).__name__,
+            'raw_param': time_id
         }
         
         # 验证time_id
