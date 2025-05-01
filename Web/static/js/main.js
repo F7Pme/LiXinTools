@@ -617,6 +617,46 @@ async function fetchHistoryTimes() {
 // 获取指定时间点的历史电量数据
 async function fetchHistoryData(timeId) {
     try {
+        // 检查timeId是否为undefined
+        if (!timeId || timeId === 'undefined') {
+            console.error("无效的时间ID:", timeId);
+
+            // 显示错误信息
+            const roomDataElement = document.getElementById('room-data');
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                        <p class="mt-3">无效的时间ID</p>
+                        <p class="small text-muted">请重新选择日期或刷新页面</p>
+                    </td>
+                </tr>
+            `;
+
+            // 显示错误信息
+            updateDisplayTime('无效的查询日期', true);
+            return;
+        }
+
+        // 检查是否是合法的8位日期ID (YYYYMMDD)
+        if (!/^\d{8}$/.test(timeId)) {
+            console.error("时间ID格式错误，应为8位数字:", timeId);
+
+            const roomDataElement = document.getElementById('room-data');
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                        <p class="mt-3">时间ID格式错误</p>
+                        <p class="small text-muted">ID应为8位数字(YYYYMMDD): ${timeId}</p>
+                    </td>
+                </tr>
+            `;
+
+            updateDisplayTime('格式错误', true);
+            return;
+        }
+
         // 更新UI以显示加载中状态
         const roomDataElement = document.getElementById('room-data');
         roomDataElement.innerHTML = `
@@ -626,14 +666,10 @@ async function fetchHistoryData(timeId) {
                         <span class="visually-hidden">加载中...</span>
                     </div>
                     <p class="mt-3">正在加载历史数据...</p>
+                    <p class="small text-muted">日期ID: ${timeId}</p>
                 </td>
             </tr>
         `;
-
-        // 检查timeId是否为undefined
-        if (!timeId || timeId === 'undefined') {
-            throw new Error('无效的时间ID');
-        }
 
         console.log("请求历史数据，时间ID:", timeId);
 
@@ -651,6 +687,7 @@ async function fetchHistoryData(timeId) {
                     <td colspan="4" class="text-center py-5">
                         <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
                         <p class="mt-3">获取历史数据错误: ${data.error}</p>
+                        <p class="small text-muted">时间ID: ${timeId}</p>
                         ${data.debug_info ? `<p class="small text-muted">调试信息: ${JSON.stringify(data.debug_info)}</p>` : ''}
                     </td>
                 </tr>
