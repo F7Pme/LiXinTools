@@ -150,48 +150,95 @@ def get_history_times():
             database=DB_CONFIG['database']
         )
         cursor = conn.cursor(pymysql.cursors.DictCursor)
+
+        # 调试信息
+        debug_info = {}
         
-        # 获取查询时间点列表 - 直接从electricity_records表查询
-        cursor.execute("""
-            SELECT 
-                DATE_FORMAT(query_time, '%Y%m%d%H%i%s') AS time_id,
-                DATE_FORMAT(query_time, '%Y-%m-%d %H:%i:%s') AS formatted_time, 
-                COUNT(*) AS record_count
-            FROM 
-                electricity_records
-            GROUP BY 
-                time_id, formatted_time
-            ORDER BY 
-                query_time DESC
-            LIMIT 30
-        """)
-        
-        time_points = cursor.fetchall()
-        valid_times = []
-        
-        if not time_points:
-            cursor.close()
-            conn.close()
+        # 首先检查表是否存在和记录数
+        cursor.execute("SHOW TABLES LIKE 'electricity_records'")
+        if not cursor.fetchone():
+            debug_info['error'] = '数据表electricity_records不存在'
             return jsonify({
                 'history_times': [],
-                'error': '没有找到任何查询时间点'
+                'debug_info': debug_info
             })
             
-        # 查询query_history表以获取描述信息
+        # 统计记录总数
+        cursor.execute("SELECT COUNT(*) AS count FROM electricity_records")
+        result = cursor.fetchone()
+        record_count = result['count'] if result else 0
+        debug_info['total_records'] = record_count
+        
+        if record_count == 0:
+            debug_info['error'] = '数据表electricity_records中没有记录'
+            return jsonify({
+                'history_times': [],
+                'debug_info': debug_info
+            })
+
+        # 尝试精确SQL查询，确保正确处理可能的错误
+        try:
+            cursor.execute("""
+                SELECT 
+                    DATE_FORMAT(query_time, '%Y%m%d%H%i%s') AS time_id,
+                    DATE_FORMAT(query_time, '%Y-%m-%d %H:%i:%s') AS formatted_time, 
+                    COUNT(*) AS record_count
+                FROM 
+                    electricity_records
+                GROUP BY 
+                    time_id, formatted_time
+                ORDER BY 
+                    query_time DESC
+                LIMIT 50
+            """)
+            
+            # 记录执行的SQL查询
+            debug_info['sql'] = cursor._last_executed if hasattr(cursor, '_last_executed') else 'SQL查询不可用'
+            time_points = cursor.fetchall()
+            debug_info['query_result_count'] = len(time_points)
+            
+            if not time_points:
+                debug_info['error'] = 'SQL查询没有返回结果'
+                return jsonify({
+                    'history_times': [],
+                    'debug_info': debug_info
+                })
+        except Exception as sql_error:
+            debug_info['sql_error'] = str(sql_error)
+            return jsonify({
+                'history_times': [],
+                'debug_info': debug_info
+            })
+            
+        # 处理查询结果
+        valid_times = []
+        debug_info['time_points'] = [] 
+        
         for point in time_points:
             time_id = point['time_id']
             formatted_time = point['formatted_time']
             record_count = point['record_count']
             
-            # 尝试从query_history找到对应的描述
-            cursor.execute("""
-                SELECT id, description 
-                FROM query_history 
-                WHERE DATE_FORMAT(query_time, '%Y%m%d%H%i%s') = %s
-                LIMIT 1
-            """, (time_id,))
+            # 记录调试信息
+            debug_info['time_points'].append({
+                'time_id': time_id,
+                'formatted_time': formatted_time,
+                'record_count': record_count
+            })
             
-            history_record = cursor.fetchone()
+            # 尝试从query_history找到对应的描述
+            try:
+                cursor.execute("""
+                    SELECT id, description 
+                    FROM query_history 
+                    WHERE DATE_FORMAT(query_time, '%Y%m%d%H%i%s') = %s
+                    LIMIT 1
+                """, (time_id,))
+                
+                history_record = cursor.fetchone()
+            except Exception as qh_error:
+                debug_info['query_history_error'] = str(qh_error)
+                history_record = None
             
             # 构建时间点记录
             time_record = {
@@ -213,15 +260,32 @@ def get_history_times():
         cursor.close()
         conn.close()
         
+        # 返回结果
         return jsonify({
             'history_times': valid_times,
-            'count': len(valid_times)
+            'count': len(valid_times),
+            'debug_info': debug_info
         })
         
     except Exception as e:
+        # 捕获并返回详细错误信息
+        error_info = {
+            'error': str(e),
+            'location': 'get_history_times',
+            'type': str(type(e))
+        }
+        
+        # 如果是可追踪的错误，添加行号信息
+        if hasattr(e, '__traceback__'):
+            tb = e.__traceback__
+            while tb.tb_next:
+                tb = tb.tb_next
+            error_info['line'] = tb.tb_lineno
+            
         return jsonify({
             'error': str(e),
-            'history_times': []
+            'history_times': [],
+            'debug_info': error_info
         })
 
 @app.route('/api/history_data/<time_id>')
