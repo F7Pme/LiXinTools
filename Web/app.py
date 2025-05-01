@@ -165,8 +165,20 @@ def get_history_times():
         # 按更细粒度的时间分组（年月日时分），而不是只按日期
         cursor.execute("""
             SELECT 
-                DATE_FORMAT(query_time, '%%Y%%m%%d%%H%%i') AS time_id,
-                DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i') AS formatted_time,
+                CONCAT(
+                    YEAR(query_time),
+                    LPAD(MONTH(query_time), 2, '0'),
+                    LPAD(DAY(query_time), 2, '0'),
+                    LPAD(HOUR(query_time), 2, '0'),
+                    LPAD(MINUTE(query_time), 2, '0')
+                ) AS time_id,
+                CONCAT(
+                    YEAR(query_time), '-',
+                    LPAD(MONTH(query_time), 2, '0'), '-',
+                    LPAD(DAY(query_time), 2, '0'), ' ',
+                    LPAD(HOUR(query_time), 2, '0'), ':',
+                    LPAD(MINUTE(query_time), 2, '0')
+                ) AS formatted_time,
                 COUNT(*) AS record_count,
                 MAX(query_time) AS latest_time
             FROM 
@@ -174,7 +186,7 @@ def get_history_times():
             GROUP BY 
                 time_id, formatted_time
             ORDER BY 
-                time_id DESC
+                latest_time DESC
             LIMIT 100
         """)
         
@@ -346,7 +358,14 @@ def get_history_data(time_id):
                 # 查询该日期的所有数据
                 cursor.execute("""
                     SELECT building, room, electricity, 
-                           DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i:%%s') AS query_time
+                           CONCAT(
+                                YEAR(query_time), '-',
+                                LPAD(MONTH(query_time), 2, '0'), '-',
+                                LPAD(DAY(query_time), 2, '0'), ' ',
+                                LPAD(HOUR(query_time), 2, '0'), ':',
+                                LPAD(MINUTE(query_time), 2, '0'), ':',
+                                LPAD(SECOND(query_time), 2, '0')
+                           ) AS query_time
                     FROM electricity_records
                     WHERE DATE(query_time) = %s
                     ORDER BY query_time DESC
@@ -369,12 +388,25 @@ def get_history_data(time_id):
                 debug_info['formatted_datetime'] = formatted_datetime
                 print(f"按时间点查询：{formatted_datetime}")
                 
-                # 查询指定分钟的数据 - 修复百分号转义问题
+                # 查询指定分钟的数据 - 使用CONCAT替代DATE_FORMAT
                 cursor.execute("""
                     SELECT building, room, electricity, 
-                           DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i:%%s') AS query_time
+                          CONCAT(
+                               YEAR(query_time), '-',
+                               LPAD(MONTH(query_time), 2, '0'), '-',
+                               LPAD(DAY(query_time), 2, '0'), ' ',
+                               LPAD(HOUR(query_time), 2, '0'), ':',
+                               LPAD(MINUTE(query_time), 2, '0'), ':',
+                               LPAD(SECOND(query_time), 2, '0')
+                          ) AS query_time
                     FROM electricity_records
-                    WHERE DATE_FORMAT(query_time, '%%Y%%m%%d%%H%%i') = %s
+                    WHERE CONCAT(
+                             YEAR(query_time),
+                             LPAD(MONTH(query_time), 2, '0'),
+                             LPAD(DAY(query_time), 2, '0'),
+                             LPAD(HOUR(query_time), 2, '0'),
+                             LPAD(MINUTE(query_time), 2, '0')
+                         ) = %s
                     ORDER BY query_time DESC
                 """, (time_id,))
                 
@@ -402,7 +434,14 @@ def get_history_data(time_id):
                                 # 查询该日期的所有数据
                                 cursor.execute("""
                                     SELECT building, room, electricity, 
-                                           DATE_FORMAT(query_time, '%%Y-%%m-%%d %%H:%%i:%%s') AS query_time
+                                           CONCAT(
+                                                YEAR(query_time), '-',
+                                                LPAD(MONTH(query_time), 2, '0'), '-',
+                                                LPAD(DAY(query_time), 2, '0'), ' ',
+                                                LPAD(HOUR(query_time), 2, '0'), ':',
+                                                LPAD(MINUTE(query_time), 2, '0'), ':',
+                                                LPAD(SECOND(query_time), 2, '0')
+                                           ) AS query_time
                                     FROM electricity_records
                                     WHERE DATE(query_time) = %s
                                     ORDER BY query_time DESC
@@ -759,7 +798,16 @@ def get_room_history(building, room):
         if cursor.fetchone():
             # 使用新表结构 - 按时间点查询
             cursor.execute("""
-                SELECT DATE_FORMAT(er.query_time, '%%Y-%%m-%%d %%H:%%i:%%s') as query_time, er.electricity 
+                SELECT 
+                    CONCAT(
+                        YEAR(er.query_time), '-',
+                        LPAD(MONTH(er.query_time), 2, '0'), '-',
+                        LPAD(DAY(er.query_time), 2, '0'), ' ',
+                        LPAD(HOUR(er.query_time), 2, '0'), ':',
+                        LPAD(MINUTE(er.query_time), 2, '0'), ':',
+                        LPAD(SECOND(er.query_time), 2, '0')
+                    ) as query_time, 
+                    er.electricity 
                 FROM electricity_records er
                 WHERE er.building = %s AND er.room = %s
                 ORDER BY er.query_time DESC
