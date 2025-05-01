@@ -443,23 +443,12 @@
                             return;
                         }
 
-                        // 直接调用显示历史数据函数
+                        // 直接调用应用历史数据函数
                         try {
-                            window.originalRoomData = data.data || [];
-
-                            if (data.data && data.data.length > 0) {
-                                // 应用当前排序设置
-                                const sortedData = window.sortRoomData([...window.originalRoomData]);
-
-                                // 显示排序后的数据
-                                window.displayRoomData(sortedData);
-
-                                // 更新时间显示
-                                window.updateDisplayTime(data.query_time || '未知时间', true);
-
+                            if (window.applyHistoryData(data, timeId)) {
                                 alert('数据已成功应用到表格中');
                             } else {
-                                alert('API返回的数据为空，无法应用');
+                                alert('应用数据失败，请查看控制台日志');
                             }
                         } catch (e) {
                             console.error('应用数据出错:', e);
