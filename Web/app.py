@@ -4,6 +4,10 @@ import datetime
 import sys
 import os
 import urllib.parse
+import redis
+import json
+import pickle
+from functools import wraps
 
 # 添加项目根目录到系统路径，确保可以导入项目模块
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,12 +24,65 @@ DB_CONFIG = {
     'database': 'electricity_data'
 }
 
+# Redis配置
+REDIS_CONFIG = {
+    'host': 'localhost',
+    'port': 6379,
+    'password': None,  # 设置为您的Redis密码，如果有的话
+    'db': 0,
+    'decode_responses': False  # 存储二进制数据时需要设为False
+}
+
+# 创建Redis连接
+try:
+    redis_client = redis.Redis(**REDIS_CONFIG)
+    redis_enabled = True
+    print("Redis连接成功")
+except Exception as e:
+    print(f"Redis连接失败: {str(e)}")
+    redis_enabled = False
+
+# 缓存装饰器
+def cache_with_redis(expire=300):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # 如果Redis不可用，直接调用原函数
+            if not redis_enabled:
+                return f(*args, **kwargs)
+                
+            # 创建缓存键
+            cache_key = f.__name__ + str(args) + str(kwargs)
+            
+            try:
+                # 尝试从Redis获取缓存
+                cached_result = redis_client.get(cache_key)
+                if cached_result:
+                    print(f"使用缓存数据: {f.__name__}")
+                    return pickle.loads(cached_result)
+                    
+                # 如果没有缓存，执行原函数
+                print(f"无缓存，执行查询: {f.__name__}")
+                result = f(*args, **kwargs)
+                
+                # 存储结果到Redis
+                redis_client.setex(cache_key, expire, pickle.dumps(result))
+                return result
+            except Exception as e:
+                print(f"Redis缓存错误: {str(e)}")
+                # 出错时，回退到原函数
+                return f(*args, **kwargs)
+                
+        return decorated_function
+    return decorator
+
 @app.route('/')
 def index():
     """渲染主页"""
     return render_template('index.html')
 
 @app.route('/api/latest_query_time')
+@cache_with_redis(expire=60)  # 缓存1分钟
 def get_latest_query_time():
     """获取最新的查询时间"""
     analyzer = ElectricityAnalysis(
@@ -37,6 +94,7 @@ def get_latest_query_time():
     return jsonify({'query_time': query_time or "暂无查询记录"})
 
 @app.route('/api/electricity_data')
+@cache_with_redis(expire=300)  # 缓存5分钟
 def get_electricity_data():
     """获取电量数据"""
     analyzer = ElectricityAnalysis(
@@ -65,6 +123,7 @@ def get_electricity_data():
     })
 
 @app.route('/api/analysis')
+@cache_with_redis(expire=600)  # 缓存10分钟
 def get_analysis():
     """获取分析结果"""
     analyzer = ElectricityAnalysis(
@@ -80,6 +139,7 @@ def get_analysis():
     })
 
 @app.route('/api/query_history')
+@cache_with_redis(expire=300)  # 缓存5分钟
 def get_query_history():
     """获取查询历史记录"""
     try:
@@ -107,6 +167,7 @@ def get_query_history():
         return jsonify({'error': str(e)})
 
 @app.route('/api/building_data')
+@cache_with_redis(expire=600)  # 缓存10分钟
 def get_building_data():
     """获取楼栋数据"""
     analyzer = ElectricityAnalysis(
@@ -141,6 +202,7 @@ def get_building_data():
     })
 
 @app.route('/api/history_times')
+@cache_with_redis(expire=300)  # 缓存5分钟
 def get_history_times():
     """获取所有历史查询时间点"""
     try:
@@ -315,6 +377,7 @@ def get_history_times():
         })
 
 @app.route('/api/history_data/<path:time_id>')
+@cache_with_redis(expire=600)  # 缓存10分钟
 def get_history_data(time_id):
     """获取指定时间点的电量数据"""
     try:
@@ -803,6 +866,7 @@ def fix_history_data():
         })
 
 @app.route('/api/room_history/<building>/<room>')
+@cache_with_redis(expire=600)  # 缓存10分钟
 def get_room_history(building, room):
     """获取特定房间的历史电量数据"""
     try:
