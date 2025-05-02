@@ -661,13 +661,29 @@ async function fetchHistoryTimes() {
                         description: item.description
                     });
 
-                    // 创建选项
+                    // 创建选项元素
                     const option = document.createElement('option');
 
-                    // 确保timeId被正确设置为值
-                    if (timeIdValue) {
-                        option.setAttribute('value', timeIdValue);
-                        option.dataset.timeId = timeIdValue; // 添加数据属性作为备份
+                    // 重要：从格式化的时间中提取数字格式的timeId
+                    // 提取格式为"YYYYMMDDHHMM"的timeId（如：202505012230）
+                    const formattedTime = item.query_time; // 格式为"YYYY-MM-DD HH:MM"
+                    let extractedTimeId = '';
+
+                    if (formattedTime) {
+                        // 从格式化时间中提取数字
+                        const timeParts = formattedTime.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+                        if (timeParts) {
+                            // 组合为YYYYMMDDHHMM格式
+                            extractedTimeId = timeParts[1] + timeParts[2] + timeParts[3] + timeParts[4] + timeParts[5];
+                            console.log(`从时间 [${formattedTime}] 提取timeId: [${extractedTimeId}]`);
+                        }
+                    }
+
+                    // 使用提取的timeId作为选项值，与API测试工具使用相同格式
+                    if (extractedTimeId) {
+                        option.value = extractedTimeId;
+                    } else {
+                        option.value = timeIdValue; // 回退到原始值
                     }
 
                     // 设置显示文本
