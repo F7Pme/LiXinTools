@@ -774,57 +774,37 @@ async function fetchHistoryData(timeId) {
     try {
         console.log("--------- 开始获取历史数据 ---------");
         console.log("获取历史数据函数被调用，参数timeId =", timeId);
-        console.log("timeId类型 =", typeof timeId);
 
-        // 备份原始timeId
-        const originalTimeId = timeId;
-
-        // 检查参数，如果无效，尝试从选择器获取
+        // 检查传入的参数
         if (!timeId || timeId === 'undefined' || timeId === 'null') {
-            console.log("传入的timeId无效，尝试从选择器获取");
-
+            // 尝试从选择器获取
             const selector = document.getElementById('history-selector');
-            if (selector) {
-                const selectedIndex = selector.selectedIndex;
-                const selectedOption = selector.options[selectedIndex];
+            if (selector && selector.selectedIndex >= 0) {
+                const selectedOption = selector.options[selector.selectedIndex];
 
+                // 记录选择器详细信息
                 console.log("选择器状态:", {
-                    存在: !!selector,
+                    元素ID: selector.id,
                     选项数: selector.options.length,
-                    当前选中索引: selectedIndex,
-                    当前选中内容: selectedOption ? selectedOption.textContent : '无'
+                    当前值: selector.value,
+                    当前选中索引: selector.selectedIndex,
+                    当前选中选项值: selectedOption ? selectedOption.value : '无',
+                    当前选中选项文本: selectedOption ? selectedOption.textContent : '无'
                 });
 
-                if (selectedOption && selectedOption.value && selectedOption.value !== 'latest' && selectedOption.value !== 'undefined') {
-                    timeId = selectedOption.value;
-                    console.log(`直接从选项获取value: timeId = ${timeId}`);
-                } else if (selector.value && selector.value !== 'latest' && selector.value !== 'undefined') {
-                    timeId = selector.value;
-                    console.log(`从选择器value获取: timeId = ${timeId}`);
-                } else {
-                    console.error("无法获取有效的timeId");
-
-                    // 显示错误信息
-                    const roomDataElement = document.getElementById('room-data');
-                    if (roomDataElement) {
-                        roomDataElement.innerHTML = `
-                            <tr>
-                                <td colspan="4" class="text-center py-5">
-                                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                                    <p class="mt-3">无效的时间ID</p>
-                                    <p class="small text-muted">原始timeId = ${originalTimeId}</p>
-                                    <p class="small text-muted">选择器值 = ${selector.value || '空'}</p>
-                                    <p class="small text-muted">选中选项值 = ${selectedOption ? selectedOption.value : '无选中选项'}</p>
-                                </td>
-                            </tr>
-                        `;
-                    }
-
-                    updateDisplayTime('无效的查询日期', true);
+                // 如果选择了"最新数据"
+                if (selector.value === 'latest') {
+                    console.log("选择了'最新数据'，调用fetchElectricityData()");
+                    fetchElectricityData();
                     return;
                 }
+
+                // 使用选中选项的值
+                timeId = selectedOption ? selectedOption.value : null;
+                console.log(`从选择器获取timeId = ${timeId}`);
             } else {
-                console.error("找不到历史选择器元素");
+                console.error("无法获取有效的timeId，选择器不存在或未选中任何选项");
+                updateDisplayTime('未选择有效的查询时间', true);
 
                 // 显示错误信息
                 const roomDataElement = document.getElementById('room-data');
@@ -833,120 +813,143 @@ async function fetchHistoryData(timeId) {
                         <tr>
                             <td colspan="4" class="text-center py-5">
                                 <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                                <p class="mt-3">无效的时间ID</p>
-                                <p class="small text-muted">原始timeId = ${originalTimeId}</p>
-                                <p class="small text-muted">选择器不存在</p>
+                                <p class="mt-3">请先选择一个有效的历史时间点</p>
                             </td>
                         </tr>
                     `;
                 }
-
-                updateDisplayTime('无效的查询日期', true);
                 return;
             }
         }
 
-        // 如果是latest，则获取最新数据
-        if (timeId === 'latest') {
-            console.log("选择了最新数据，调用fetchElectricityData()");
-            fetchElectricityData();
+        // 确保timeId是字符串并去除空格
+        timeId = String(timeId).trim();
+
+        // 如果timeId仍然无效，显示错误并返回
+        if (!timeId || timeId === 'undefined' || timeId === 'null' || timeId === '') {
+            console.error("处理后的timeId仍然无效:", timeId);
+
+            // 显示错误信息
+            const roomDataElement = document.getElementById('room-data');
+            if (roomDataElement) {
+                roomDataElement.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-5">
+                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                            <p class="mt-3">无效的时间ID</p>
+                            <p class="small text-muted">timeId = ${timeId}</p>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            updateDisplayTime('无效的查询日期', true);
             return;
         }
+
+        console.log(`最终使用的timeId = ${timeId}`);
 
         // 显示加载状态
         const roomDataElement = document.getElementById('room-data');
-        roomDataElement.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">加载中...</span>
-                    </div>
-                    <p class="mt-3">正在加载历史数据...</p>
-                    <p class="small text-muted">时间ID: ${timeId}</p>
-                </td>
-            </tr>
-        `;
+        if (roomDataElement) {
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-3">正在加载历史数据...</p>
+                        <p class="small text-muted">时间ID: ${timeId}</p>
+                    </td>
+                </tr>
+            `;
+        }
 
-        console.log(`准备请求API: /api/history_data/${timeId}`);
+        // 直接构建API URL - 与API测试工具完全相同的方式
+        const apiUrl = `/api/history_data/${timeId}`;
 
-        // 请求历史数据
-        const response = await fetch(`/api/history_data/${timeId}`);
+        console.log(`%c发送GET请求 %c${apiUrl}`,
+            'color: white; background: purple; font-weight: bold',
+            'color: blue; font-weight: bold');
+
+        // 发送请求
+        const response = await fetch(apiUrl);
+
+        // 确保响应成功
+        if (!response.ok) {
+            throw new Error(`API响应错误，状态码: ${response.status}`);
+        }
+
+        // 解析JSON响应
         const data = await response.json();
 
-        // 详细记录API返回内容
-        console.log("历史数据API返回:", data);
-
-        if (data.debug_info) {
-            console.log("debug_info详情:", data.debug_info);
-            console.table(data.debug_info);
-        }
+        // 输出API返回结果
+        console.log("API响应数据:", data);
 
         // 检查是否有错误
         if (data.error) {
-            console.error("API返回错误:", data.error);
-            roomDataElement.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center py-5">
-                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                        <p class="mt-3">获取历史数据错误: ${data.error}</p>
-                        <p class="small text-muted">时间ID: ${timeId}</p>
-                        <div class="small text-muted mt-2" style="max-height: 200px; overflow-y: auto;">
-                            <pre>${JSON.stringify(data.debug_info, null, 2)}</pre>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            updateDisplayTime('获取失败', true);
+            console.error(`API返回错误: ${data.error}`);
+
+            // 显示错误信息
+            if (roomDataElement) {
+                roomDataElement.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-5">
+                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                            <p class="mt-3">获取历史数据错误: ${data.error}</p>
+                            <p class="small text-muted">时间ID: ${timeId}</p>
+                            ${data.query_time ? `<p class="small text-muted">查询时间: ${data.query_time}</p>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            // 更新显示的时间
+            updateDisplayTime(data.query_time || '未知时间', true);
             return;
         }
 
-        // 确保query_time存在
-        const queryTime = data.query_time || '未知时间';
-        console.log("显示时间:", queryTime);
+        // 更新查询时间显示
+        updateDisplayTime(data.query_time, true);
 
-        // 更新时间显示
-        updateDisplayTime(queryTime, true);
-
-        // 检查数据
-        if (data.data && data.data.length > 0) {
-            console.log(`获取到 ${data.data.length} 条数据`);
-
-            // 存储数据用于搜索和排序
-            window.originalRoomData = data.data;
-
-            // 应用当前排序设置
-            const sortedData = sortRoomData([...window.originalRoomData]);
-
-            // 显示排序后的数据
-            displayRoomData(sortedData);
+        // 处理并显示数据
+        if (data.electricity_data && data.electricity_data.length > 0) {
+            console.log(`成功获取到${data.electricity_data.length}条历史数据记录`);
+            displayRoomData(data.electricity_data);
         } else {
-            console.log("没有获取到数据");
-            roomDataElement.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center py-5">
-                        <i class="bi bi-exclamation-circle text-warning" style="font-size: 2rem;"></i>
-                        <p class="mt-3">该时间点没有电量数据</p>
-                        <p class="small text-muted">时间ID: ${timeId}</p>
-                    </td>
-                </tr>
-            `;
+            console.warn("API返回的数据为空");
+            if (roomDataElement) {
+                roomDataElement.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-5">
+                            <i class="bi bi-info-circle text-info" style="font-size: 2rem;"></i>
+                            <p class="mt-3">该时间点没有电量数据</p>
+                            <p class="small text-muted">查询时间: ${data.query_time || '未知'}</p>
+                        </td>
+                    </tr>
+                `;
+            }
         }
 
         console.log("--------- 历史数据获取完成 ---------");
     } catch (error) {
-        console.error('获取历史电量数据出错:', error);
+        console.error("获取历史数据出错:", error);
 
+        // 显示错误信息
         const roomDataElement = document.getElementById('room-data');
-        roomDataElement.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center py-5">
-                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                    <p class="mt-3">获取历史数据失败: ${error.message}</p>
-                </td>
-            </tr>
-        `;
+        if (roomDataElement) {
+            roomDataElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                        <p class="mt-3">获取历史数据时发生错误</p>
+                        <p class="small text-muted">${error.message}</p>
+                    </td>
+                </tr>
+            `;
+        }
 
-        updateDisplayTime('获取失败', true);
+        updateDisplayTime('获取数据出错', true);
     }
 }
 
