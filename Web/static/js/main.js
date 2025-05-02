@@ -560,18 +560,49 @@ async function fetchHistoryTimes() {
 
         // 添加选择器事件监听
         newSelector.addEventListener('change', function () {
-            const value = this.value;
-            console.log(`选择器变更: 选择了 [${value}]`);
+            try {
+                const selectedIndex = this.selectedIndex;
+                const selectedOption = this.options[selectedIndex];
+                const value = this.value;
 
-            if (value === 'latest') {
-                console.log('加载最新数据');
-                fetchElectricityData();
-            } else if (value && value !== 'undefined') {
-                console.log(`直接加载历史数据，timeId = [${value}]`);
-                // 立即触发数据获取
-                fetchHistoryData(value);
-            } else {
-                console.error(`选择器值无效: ${value}`);
+                console.log("------- 选择器变更 -------");
+                console.log(`选中索引: ${selectedIndex}`);
+                console.log(`选中选项: ${selectedOption ? selectedOption.textContent : 'null'}`);
+                console.log(`选择器值: [${value}]`);
+                console.log(`选择器类型: ${typeof value}`);
+
+                if (!value) {
+                    console.error("选择器返回空值");
+                    return;
+                }
+
+                if (value === 'latest') {
+                    console.log('加载最新数据');
+                    fetchElectricityData();
+                } else if (value && value !== 'undefined') {
+                    console.log(`直接加载历史数据，timeId = [${value}]`);
+                    // 立即触发数据获取
+                    fetchHistoryData(value);
+                } else {
+                    console.error(`选择器值无效: ${value}`);
+
+                    // 显示错误信息
+                    const roomDataElement = document.getElementById('room-data');
+                    if (roomDataElement) {
+                        roomDataElement.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center py-5">
+                                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                                    <p class="mt-3">无效的时间ID值</p>
+                                    <p class="small text-muted">选择器返回: ${value}</p>
+                                    <p class="small text-muted">选中项: ${selectedOption ? selectedOption.textContent : '无'}</p>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error("选择器change事件处理出错:", error);
             }
         });
 
@@ -591,42 +622,50 @@ async function fetchHistoryTimes() {
             console.log(`找到 ${data.history_times.length} 个历史时间点`);
 
             data.history_times.forEach((item, index) => {
-                // 验证time_id
-                if (!item.time_id || item.time_id === 'undefined') {
-                    console.warn(`跳过无效的时间点 #${index}:`, item);
-                    return;
-                }
-
-                // 确保time_id是字符串
-                const timeIdValue = String(item.time_id);
-
-                // 额外输出调试信息
-                console.log(`处理时间点 #${index}:`, {
-                    rawTimeId: item.time_id,
-                    processedTimeId: timeIdValue,
-                    queryTime: item.query_time,
-                    description: item.description
-                });
-
-                // 创建选项
-                const option = document.createElement('option');
-                option.value = timeIdValue;
-
-                // 设置显示文本
-                let displayText = item.query_time;
-                if (item.description) {
-                    if (item.description.includes(item.query_time)) {
-                        displayText = item.description;
-                    } else {
-                        displayText = `${item.query_time} (${item.description})`;
+                try {
+                    // 验证并处理time_id
+                    if (!item.time_id) {
+                        console.error(`跳过无效的时间点 #${index}:`, item);
+                        return;
                     }
+
+                    // 确保time_id是字符串并有效
+                    const timeIdValue = String(item.time_id).trim();
+                    if (!timeIdValue || timeIdValue === 'undefined' || timeIdValue === 'null') {
+                        console.error(`时间点 #${index} 有无效time_id (${timeIdValue}):`, item);
+                        return;
+                    }
+
+                    // 记录详细的调试信息
+                    console.log(`处理时间点 #${index}:`, {
+                        rawTimeId: item.time_id,
+                        processedTimeId: timeIdValue,
+                        queryTime: item.query_time,
+                        description: item.description
+                    });
+
+                    // 创建选项
+                    const option = document.createElement('option');
+                    option.value = timeIdValue;  // 明确设置value
+
+                    // 设置显示文本
+                    let displayText = item.query_time;
+                    if (item.description) {
+                        if (item.description.includes(item.query_time)) {
+                            displayText = item.description;
+                        } else {
+                            displayText = `${item.query_time} (${item.description})`;
+                        }
+                    }
+                    option.textContent = displayText;
+
+                    // 添加到选择器
+                    newSelector.appendChild(option);
+
+                    console.log(`选项已添加 #${index}: value=[${option.value}], text=[${option.textContent}]`);
+                } catch (itemError) {
+                    console.error(`处理时间点 #${index} 出错:`, itemError, item);
                 }
-                option.textContent = displayText;
-
-                // 添加到选择器
-                newSelector.appendChild(option);
-
-                console.log(`添加选项 #${index}: value=[${option.value}], text=[${option.textContent}]`);
             });
 
             // 添加调试按钮
@@ -697,31 +736,73 @@ async function fetchHistoryData(timeId) {
     try {
         console.log("--------- 开始获取历史数据 ---------");
         console.log("获取历史数据函数被调用，参数timeId =", timeId);
+        console.log("timeId类型 =", typeof timeId);
 
         // 备份原始timeId
         const originalTimeId = timeId;
 
         // 检查参数，如果无效，尝试从选择器获取
         if (!timeId || timeId === 'undefined' || timeId === 'null') {
+            console.log("传入的timeId无效，尝试从选择器获取");
+
             const selector = document.getElementById('history-selector');
-            if (selector && selector.value && selector.value !== 'latest' && selector.value !== 'undefined') {
-                timeId = selector.value;
-                console.log("从选择器获取timeId =", timeId);
+            if (selector) {
+                const selectedIndex = selector.selectedIndex;
+                const selectedOption = selector.options[selectedIndex];
+
+                console.log("选择器状态:", {
+                    存在: !!selector,
+                    选项数: selector.options.length,
+                    当前选中索引: selectedIndex,
+                    当前选中内容: selectedOption ? selectedOption.textContent : '无'
+                });
+
+                if (selectedOption && selectedOption.value && selectedOption.value !== 'latest' && selectedOption.value !== 'undefined') {
+                    timeId = selectedOption.value;
+                    console.log(`直接从选项获取value: timeId = ${timeId}`);
+                } else if (selector.value && selector.value !== 'latest' && selector.value !== 'undefined') {
+                    timeId = selector.value;
+                    console.log(`从选择器value获取: timeId = ${timeId}`);
+                } else {
+                    console.error("无法获取有效的timeId");
+
+                    // 显示错误信息
+                    const roomDataElement = document.getElementById('room-data');
+                    if (roomDataElement) {
+                        roomDataElement.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center py-5">
+                                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                                    <p class="mt-3">无效的时间ID</p>
+                                    <p class="small text-muted">原始timeId = ${originalTimeId}</p>
+                                    <p class="small text-muted">选择器值 = ${selector.value || '空'}</p>
+                                    <p class="small text-muted">选中选项值 = ${selectedOption ? selectedOption.value : '无选中选项'}</p>
+                                </td>
+                            </tr>
+                        `;
+                    }
+
+                    updateDisplayTime('无效的查询日期', true);
+                    return;
+                }
             } else {
-                console.error("无法获取有效的timeId");
+                console.error("找不到历史选择器元素");
 
                 // 显示错误信息
                 const roomDataElement = document.getElementById('room-data');
-                roomDataElement.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="text-center py-5">
-                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                            <p class="mt-3">无效的时间ID</p>
-                            <p class="small text-muted">原始timeId = ${originalTimeId}</p>
-                            <p class="small text-muted">选择器值 = ${selector ? selector.value : '选择器不存在'}</p>
-                        </td>
-                    </tr>
-                `;
+                if (roomDataElement) {
+                    roomDataElement.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                                <p class="mt-3">无效的时间ID</p>
+                                <p class="small text-muted">原始timeId = ${originalTimeId}</p>
+                                <p class="small text-muted">选择器不存在</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+
                 updateDisplayTime('无效的查询日期', true);
                 return;
             }

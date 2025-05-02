@@ -162,33 +162,18 @@ def get_history_times():
         
         print(f"开始查询历史时间点，共有 {record_count} 条记录")
         
-        # 按更细粒度的时间分组（年月日时分）
-        # 使用MySQL函数提取时间部分并组合成格式化字符串
-        # CONCAT合并字符串，LPAD补零
-        # YEAR/MONTH/DAY/HOUR/MINUTE提取时间部分
+        # 使用简单的SQL查询获取历史时间点
         try:
             cursor.execute("""
                 SELECT 
-                    CONCAT(
-                        YEAR(query_time),
-                        LPAD(MONTH(query_time), 2, '0'),
-                        LPAD(DAY(query_time), 2, '0'),
-                        LPAD(HOUR(query_time), 2, '0'),
-                        LPAD(MINUTE(query_time), 2, '0')
-                    ) AS time_id,
-                    CONCAT(
-                        YEAR(query_time), '-',
-                        LPAD(MONTH(query_time), 2, '0'), '-',
-                        LPAD(DAY(query_time), 2, '0'), ' ',
-                        LPAD(HOUR(query_time), 2, '0'), ':',
-                        LPAD(MINUTE(query_time), 2, '0')
-                    ) AS formatted_time,
+                    DATE_FORMAT(query_time, '%Y%m%d%H%i') AS time_id_format,
+                    DATE_FORMAT(query_time, '%Y-%m-%d %H:%i') AS formatted_time,
                     COUNT(*) AS record_count,
                     MAX(query_time) AS latest_time
                 FROM 
                     electricity_records
                 GROUP BY 
-                    time_id, formatted_time
+                    time_id_format, formatted_time
                 ORDER BY 
                     latest_time DESC
                 LIMIT 100
@@ -200,25 +185,13 @@ def get_history_times():
             
             # 添加测试查询，验证time_id值
             if time_points and len(time_points) > 0:
-                test_time_id = time_points[0]['time_id']
-                print(f"测试第一个time_id: {test_time_id}, 类型: {type(test_time_id).__name__}")
+                first_point = time_points[0]
+                print(f"第一个时间点原始数据: {first_point}")
+                print(f"第一个时间点类型: {type(first_point).__name__}")
                 
-                # 简单查询验证time_id有效性
-                test_query = f"""
-                    SELECT COUNT(*) AS test_count 
-                    FROM electricity_records 
-                    WHERE CONCAT(
-                        YEAR(query_time),
-                        LPAD(MONTH(query_time), 2, '0'),
-                        LPAD(DAY(query_time), 2, '0'),
-                        LPAD(HOUR(query_time), 2, '0'),
-                        LPAD(MINUTE(query_time), 2, '0')
-                    ) = '{test_time_id}'
-                """
-                cursor.execute(test_query)
-                test_result = cursor.fetchone()
-                print(f"通过time_id={test_time_id}查询测试: 找到{test_result['test_count']}条记录")
-                debug_info['test_query_result'] = test_result['test_count']
+                for key, value in first_point.items():
+                    value_type = type(value).__name__
+                    print(f"  字段 {key}: 值={value}, 类型={value_type}")
                 
         except Exception as query_error:
             print(f"历史时间点查询出错: {str(query_error)}")
@@ -237,30 +210,30 @@ def get_history_times():
         valid_times = []
         
         for point in time_points:
-            time_id = point['time_id']          # 格式：YYYYMMDDHHmm
-            formatted_time = point['formatted_time']  # 格式：YYYY-MM-DD HH:mm
-            record_count = point['record_count']
+            # 从格式化字段提取时间ID (使用time_id_format字段)
+            time_id_raw = point.get('time_id_format')
+            formatted_time = point.get('formatted_time')
+            record_count = point.get('record_count', 0)
             
-            # 确保time_id是一个字符串并且不是'undefined'
-            if time_id == 'undefined' or time_id is None:
-                print(f"警告：发现无效的time_id: {time_id}")
+            # 确保time_id是一个有效的字符串
+            if not time_id_raw or time_id_raw == 'None' or time_id_raw == 'null':
+                print(f"警告：跳过无效的time_id: {time_id_raw}")
                 continue
                 
-            time_id_str = str(time_id)
+            # 强制转换为字符串并移除任何空白字符
+            time_id_str = str(time_id_raw).strip()
             
             # 打印调试信息
             print(f"构建时间点记录: time_id={time_id_str}, formatted_time={formatted_time}")
             
-            # 确保time_id不为undefined
+            # 创建包含有效time_id的记录
             time_record = {
-                'time_id': time_id_str,
+                'time_id': time_id_str,  # 确保这是一个字符串
                 'query_time': formatted_time,
                 'description': f"电量记录 ({record_count}条)",
                 'record_count': record_count,
                 'id': 0
             }
-            
-            print(f"时间点: time_id={time_id_str}, formatted_time={formatted_time}, 记录数={record_count}")
             
             # 尝试从query_history找到对应的描述
             try:
@@ -302,6 +275,7 @@ def get_history_times():
         if valid_times:
             print("返回的第一个时间点数据示例:")
             print(f"  time_id = {valid_times[0]['time_id']}")
+            print(f"  time_id类型 = {type(valid_times[0]['time_id']).__name__}")
             print(f"  query_time = {valid_times[0]['query_time']}")
             print(f"  description = {valid_times[0]['description']}")
         
