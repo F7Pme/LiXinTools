@@ -5,13 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>电量查询系统</title>
-    <!-- 使用国内CDN替换 -->
-    <link rel="preconnect" href="https://cdn.bootcdn.net">
-    <link rel="dns-prefetch" href="https://cdn.bootcdn.net">
+    <!-- 使用本地资源 -->
     <link rel="icon" href="{{ url_for('static', filename='pic/app_icon.ico') }}?v=1005" type="image/x-icon">
     <link rel="shortcut icon" href="{{ url_for('static', filename='pic/app_icon.ico') }}?v=1005" type="image/x-icon">
-    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons/font/bootstrap-icons.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1005">
 </head>
 
@@ -305,8 +303,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <script src="{{ url_for('static', filename='lib/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='lib/chart.js/chart.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}?v=1005"></script>
 </body>
 
