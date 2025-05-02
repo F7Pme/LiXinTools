@@ -363,6 +363,115 @@ ${JSON.stringify(data.debug_info || {}, null, 2)}</pre>
             }
         }
     });
+
+    // 添加历史直接链接按钮的事件处理
+    const directLinkLatest = document.getElementById('direct-link-latest');
+    if (directLinkLatest) {
+        directLinkLatest.addEventListener('click', function () {
+            console.log("点击了直接链接：最新数据");
+            fetchElectricityData();
+        });
+    }
+
+    const directLink202505012230 = document.getElementById('direct-link-202505012230');
+    if (directLink202505012230) {
+        directLink202505012230.addEventListener('click', function () {
+            console.log("点击了直接链接：2025-05-01 22:30");
+            directAPIFetch('202505012230');
+        });
+    }
+
+    const directLink202505012200 = document.getElementById('direct-link-202505012200');
+    if (directLink202505012200) {
+        directLink202505012200.addEventListener('click', function () {
+            console.log("点击了直接链接：2025-05-01 22:00");
+            directAPIFetch('202505012200');
+        });
+    }
+
+    // 直接API获取函数
+    function directAPIFetch(timeId) {
+        console.log(`直接API获取，使用硬编码时间ID: ${timeId}`);
+        const apiUrl = `/api/history_data/${timeId}`;
+
+        // 显示加载状态
+        const roomDataElement = document.getElementById('room-data');
+        roomDataElement.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-3">正在加载历史数据...</p>
+                    <p class="small text-muted">时间ID: ${timeId}</p>
+                    <p class="small text-muted">API URL: ${apiUrl}</p>
+                </td>
+            </tr>
+        `;
+
+        // 直接请求
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                console.log("直接API调用返回:", data);
+
+                // 处理响应
+                if (data.error) {
+                    console.error(`API返回错误: ${data.error}`);
+                    roomDataElement.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                                <p class="mt-3">获取历史数据错误: ${data.error}</p>
+                                <p class="small text-muted">时间ID: ${timeId}</p>
+                                <p class="small text-muted">API URL: ${apiUrl}</p>
+                                <pre class="text-start" style="max-height:200px;overflow:auto;font-size:12px;">调试信息:
+${JSON.stringify(data.debug_info || {}, null, 2)}</pre>
+                            </td>
+                        </tr>
+                    `;
+                    updateDisplayTime('获取失败', true);
+                    return;
+                }
+
+                // 处理成功的响应
+                const queryTime = data.query_time || '未知时间';
+                console.log(`显示时间: ${queryTime}`);
+                updateDisplayTime(queryTime, true);
+
+                if (data.data && data.data.length > 0) {
+                    console.log(`获取到 ${data.data.length} 条记录`);
+                    window.originalRoomData = data.data;
+                    const sortedData = sortRoomData([...window.originalRoomData]);
+                    displayRoomData(sortedData);
+                } else {
+                    console.log("API返回的数据为空");
+                    roomDataElement.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <i class="bi bi-exclamation-circle text-warning" style="font-size: 2rem;"></i>
+                                <p class="mt-3">该时间点没有电量数据</p>
+                                <p class="small text-muted">时间ID: ${timeId}</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error("API请求出错:", error);
+                roomDataElement.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-5">
+                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                            <p class="mt-3">API请求失败: ${error.message}</p>
+                            <p class="small text-muted">时间ID: ${timeId}</p>
+                            <p class="small text-muted">API URL: ${apiUrl}</p>
+                        </td>
+                    </tr>
+                `;
+                updateDisplayTime('请求失败', true);
+            });
+    }
 });
 
 // 设置表格排序功能
