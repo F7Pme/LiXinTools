@@ -3,6 +3,7 @@ import pymysql
 import datetime
 import sys
 import os
+import urllib.parse
 
 # 添加项目根目录到系统路径，确保可以导入项目模块
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -329,9 +330,9 @@ def get_history_data(time_id):
         
         # 调试信息
         debug_info = {
-            'time_id': time_id,
+            'time_id_raw': time_id,
             'time_id_type': type(time_id).__name__,
-            'raw_param': time_id
+            'function': 'get_history_data'
         }
         
         # 验证time_id
@@ -343,9 +344,9 @@ def get_history_data(time_id):
                 'debug_info': debug_info
             })
             
-        # 确保time_id是字符串类型
-        time_id = str(time_id).strip()
-        debug_info['cleaned_time_id'] = time_id
+        # URL解码并确保time_id是字符串类型
+        time_id = urllib.parse.unquote(str(time_id)).strip()
+        debug_info['time_id_decoded'] = time_id
         
         # 处理时间ID
         try:

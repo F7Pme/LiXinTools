@@ -563,16 +563,33 @@ async function fetchHistoryTimes() {
             try {
                 const selectedIndex = this.selectedIndex;
                 const selectedOption = this.options[selectedIndex];
-                const value = this.value;
+
+                // 尝试多种方式获取值
+                let value = null;
+
+                // 方法1: 从data属性获取
+                if (selectedOption && selectedOption.dataset && selectedOption.dataset.timeId) {
+                    value = selectedOption.dataset.timeId;
+                    console.log(`从选项data-time-id获取值: ${value}`);
+                }
+                // 方法2: 从value属性获取
+                else if (selectedOption && selectedOption.value) {
+                    value = selectedOption.value;
+                    console.log(`从选项value获取值: ${value}`);
+                }
+                // 方法3: 从选择器value获取
+                else if (this.value) {
+                    value = this.value;
+                    console.log(`从选择器value获取值: ${value}`);
+                }
 
                 console.log("------- 选择器变更 -------");
                 console.log(`选中索引: ${selectedIndex}`);
                 console.log(`选中选项: ${selectedOption ? selectedOption.textContent : 'null'}`);
-                console.log(`选择器值: [${value}]`);
-                console.log(`选择器类型: ${typeof value}`);
+                console.log(`选中值: [${value}]`);
 
                 if (!value) {
-                    console.error("选择器返回空值");
+                    console.error("无法获取有效的时间ID值");
                     return;
                 }
 
@@ -646,7 +663,12 @@ async function fetchHistoryTimes() {
 
                     // 创建选项
                     const option = document.createElement('option');
-                    option.value = timeIdValue;  // 明确设置value
+
+                    // 确保timeId被正确设置为值
+                    if (timeIdValue) {
+                        option.setAttribute('value', timeIdValue);
+                        option.dataset.timeId = timeIdValue; // 添加数据属性作为备份
+                    }
 
                     // 设置显示文本
                     let displayText = item.query_time;
@@ -835,7 +857,13 @@ async function fetchHistoryData(timeId) {
         const response = await fetch(`/api/history_data/${timeId}`);
         const data = await response.json();
 
-        console.log("API返回数据:", data);
+        // 详细记录API返回内容
+        console.log("历史数据API返回:", data);
+
+        if (data.debug_info) {
+            console.log("debug_info详情:", data.debug_info);
+            console.table(data.debug_info);
+        }
 
         // 检查是否有错误
         if (data.error) {
@@ -846,7 +874,9 @@ async function fetchHistoryData(timeId) {
                         <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
                         <p class="mt-3">获取历史数据错误: ${data.error}</p>
                         <p class="small text-muted">时间ID: ${timeId}</p>
-                        ${data.debug_info ? `<p class="small text-muted">调试信息: ${JSON.stringify(data.debug_info)}</p>` : ''}
+                        <div class="small text-muted mt-2" style="max-height: 200px; overflow-y: auto;">
+                            <pre>${JSON.stringify(data.debug_info, null, 2)}</pre>
+                        </div>
                     </td>
                 </tr>
             `;
