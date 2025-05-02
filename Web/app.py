@@ -318,7 +318,14 @@ def get_history_times():
 def get_history_data(time_id):
     """获取指定时间点的电量数据"""
     try:
-        print(f"收到请求：/api/history_data/{time_id}")
+        # 添加详细的调试日志
+        print(f"\n=======================================")
+        print(f"收到API请求：/api/history_data/{time_id}")
+        print(f"原始time_id参数: [{time_id}], 类型: {type(time_id).__name__}")
+        
+        # URL解码
+        decoded_time_id = urllib.parse.unquote(str(time_id)).strip()
+        print(f"URL解码后: [{decoded_time_id}]")
         
         conn = pymysql.connect(
             host=DB_CONFIG['host'],
@@ -331,30 +338,30 @@ def get_history_data(time_id):
         # 调试信息
         debug_info = {
             'time_id_raw': time_id,
+            'time_id_decoded': decoded_time_id,
             'time_id_type': type(time_id).__name__,
             'function': 'get_history_data'
         }
         
         # 记录详细调试信息
         print(f"-------- 开始处理历史数据请求 --------")
-        print(f"原始time_id: [{time_id}], 类型: {type(time_id).__name__}, 长度: {len(str(time_id)) if time_id else 0}")
         
         # 验证time_id
-        if not time_id or time_id == 'undefined' or time_id == 'null':
-            print(f"无效的时间ID: [{time_id}]")
+        if not decoded_time_id or decoded_time_id == 'undefined' or decoded_time_id == 'null':
+            print(f"无效的时间ID: [{decoded_time_id}]")
             return jsonify({
                 'error': '无效的时间ID',
                 'query_time': '未知时间',
                 'debug_info': debug_info
             })
             
-        # URL解码并确保time_id是字符串类型
-        time_id = urllib.parse.unquote(str(time_id)).strip()
-        debug_info['time_id_decoded'] = time_id
+        # 确保time_id是字符串类型
+        time_id = decoded_time_id
+        debug_info['time_id_final'] = time_id
         
         # 处理时间ID
         try:
-            print(f"处理时间ID: {time_id}, 长度: {len(time_id)}, 是数字: {time_id.isdigit()}")
+            print(f"处理time_id: [{time_id}], 长度: {len(time_id)}, 是数字: {time_id.isdigit()}")
             
             # 验证time_id格式 - 支持两种格式：YYYYMMDD 或 YYYYMMDDHHmm
             if len(time_id) == 8 and time_id.isdigit():

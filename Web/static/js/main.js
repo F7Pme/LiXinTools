@@ -562,109 +562,55 @@ async function fetchHistoryTimes() {
         // 添加选择器事件监听
         newSelector.addEventListener('change', function () {
             try {
-                const selectedIndex = this.selectedIndex;
-                const selectedOption = this.options[selectedIndex];
-
-                console.log("------- 选择器变更 -------");
-                console.log(`选中索引: ${selectedIndex}`);
-                console.log(`选中选项: ${selectedOption ? selectedOption.textContent : 'null'}`);
-
-                // 记录选项详细信息
-                if (selectedOption) {
-                    console.log('选中选项详情:', {
-                        value: selectedOption.value,
-                        text: selectedOption.textContent,
-                        dataTimeId: selectedOption.dataset ? selectedOption.dataset.timeId : 'undefined',
-                        hasDataset: !!selectedOption.dataset,
-                        datasetKeys: selectedOption.dataset ? Object.keys(selectedOption.dataset) : []
-                    });
-                }
-
-                // 尝试多种方式获取值，优先使用dataset.timeId
-                let value = null;
-
-                // 方法1: 从data属性获取（优先使用）
-                if (selectedOption && selectedOption.dataset && selectedOption.dataset.timeId) {
-                    value = selectedOption.dataset.timeId;
-                    console.log(`从选项data-time-id获取值: ${value}`);
-                }
-                // 方法2: 从value属性获取
-                else if (selectedOption && selectedOption.value) {
-                    value = selectedOption.value;
-                    console.log(`从选项value获取值: ${value}`);
-                }
-                // 方法3: 从选择器value获取
-                else if (this.value) {
-                    value = this.value;
-                    console.log(`从选择器value获取值: ${value}`);
-                }
-
-                console.log(`最终选中值: [${value}]`);
-
-                if (!value) {
-                    console.error("无法获取有效的时间ID值");
+                // 获取选中的选项
+                const selectedOption = this.options[this.selectedIndex];
+                if (!selectedOption) {
+                    console.error("未选中任何选项");
                     return;
                 }
 
-                if (value === 'latest') {
-                    console.log('加载最新数据');
-                    fetchElectricityData();
-                } else if (value && value !== 'undefined') {
-                    // 检查是否是有效的数字字符串
-                    if (/^\d+$/.test(value)) {
-                        console.log(`加载历史数据，timeId = [${value}]`);
-                        fetchHistoryData(value);
-                    } else {
-                        console.error(`选择器值不是有效的数字字符串: ${value}`);
+                console.group("选择器变更");
+                console.log(`选中选项: ${selectedOption.textContent}`);
 
-                        // 显示错误信息
-                        const roomDataElement = document.getElementById('room-data');
-                        if (roomDataElement) {
-                            roomDataElement.innerHTML = `
-                                <tr>
-                                    <td colspan="4" class="text-center py-5">
-                                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                                        <p class="mt-3">无效的时间ID格式</p>
-                                        <p class="small text-muted">选择器返回: ${value}</p>
-                                        <p class="small text-muted">选中项: ${selectedOption ? selectedOption.textContent : '无'}</p>
-                                    </td>
-                                </tr>
-                            `;
-                        }
-                    }
-                } else {
-                    console.error(`选择器值无效: ${value}`);
-
-                    // 显示错误信息
-                    const roomDataElement = document.getElementById('room-data');
-                    if (roomDataElement) {
-                        roomDataElement.innerHTML = `
-                            <tr>
-                                <td colspan="4" class="text-center py-5">
-                                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                                    <p class="mt-3">无效的时间ID值</p>
-                                    <p class="small text-muted">选择器返回: ${value}</p>
-                                    <p class="small text-muted">选中项: ${selectedOption ? selectedOption.textContent : '无'}</p>
-                                </td>
-                            </tr>
-                        `;
-                    }
+                // 获取选项的timeId (优先使用data-time-id属性)
+                let timeId = null;
+                if (selectedOption.dataset && selectedOption.dataset.timeId) {
+                    timeId = selectedOption.dataset.timeId;
+                    console.log(`从data-time-id获取: [${timeId}]`);
+                } else if (selectedOption.value) {
+                    timeId = selectedOption.value;
+                    console.log(`从value获取: [${timeId}]`);
                 }
+
+                // 如果是"最新数据"选项
+                if (timeId === 'latest') {
+                    console.log("选择了'最新数据'，加载最新数据");
+                    fetchElectricityData();
+                    console.groupEnd();
+                    return;
+                }
+
+                // 验证timeId
+                if (!timeId || timeId === 'undefined' || timeId === 'null') {
+                    console.error("无效的timeId:", timeId);
+                    console.groupEnd();
+                    return;
+                }
+
+                // 确保是数字格式
+                if (!/^\d+$/.test(timeId)) {
+                    console.error(`非数字格式的timeId: ${timeId}`);
+                    console.groupEnd();
+                    return;
+                }
+
+                console.log(`将调用fetchHistoryData，参数timeId = [${timeId}]`);
+                console.groupEnd();
+
+                // 调用历史数据获取函数
+                fetchHistoryData(timeId);
             } catch (error) {
                 console.error("选择器change事件处理出错:", error);
-                // 显示错误信息在UI中
-                const roomDataElement = document.getElementById('room-data');
-                if (roomDataElement) {
-                    roomDataElement.innerHTML = `
-                        <tr>
-                            <td colspan="4" class="text-center py-5">
-                                <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                                <p class="mt-3">选择器事件处理错误</p>
-                                <p class="small text-muted">${error.message}</p>
-                            </td>
-                        </tr>
-                    `;
-                }
             }
         });
 
@@ -822,63 +768,31 @@ async function fetchHistoryTimes() {
 // 获取指定时间点的历史电量数据
 async function fetchHistoryData(timeId) {
     try {
-        console.log("--------- 开始获取历史数据 ---------");
-        console.log("获取历史数据函数被调用，参数timeId =", timeId);
+        console.group("获取历史数据");
+        console.log(`函数接收到的timeId参数: [${timeId}]`);
 
-        // 检查传入的参数
-        if (!timeId || timeId === 'undefined' || timeId === 'null') {
-            // 尝试从选择器获取
-            const selector = document.getElementById('history-selector');
-            if (selector && selector.selectedIndex >= 0) {
-                const selectedOption = selector.options[selector.selectedIndex];
-
-                // 记录选择器详细信息
-                console.log("选择器状态:", {
-                    元素ID: selector.id,
-                    选项数: selector.options.length,
-                    当前值: selector.value,
-                    当前选中索引: selector.selectedIndex,
-                    当前选中选项值: selectedOption ? selectedOption.value : '无',
-                    当前选中选项文本: selectedOption ? selectedOption.textContent : '无'
-                });
-
-                // 如果选择了"最新数据"
-                if (selector.value === 'latest') {
-                    console.log("选择了'最新数据'，调用fetchElectricityData()");
-                    fetchElectricityData();
-                    return;
-                }
-
-                // 使用选中选项的值
-                timeId = selectedOption ? selectedOption.value : null;
-                console.log(`从选择器获取timeId = ${timeId}`);
-            } else {
-                console.error("无法获取有效的timeId，选择器不存在或未选中任何选项");
-                updateDisplayTime('未选择有效的查询时间', true);
-
-                // 显示错误信息
-                const roomDataElement = document.getElementById('room-data');
-                if (roomDataElement) {
-                    roomDataElement.innerHTML = `
-                        <tr>
-                            <td colspan="4" class="text-center py-5">
-                                <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                                <p class="mt-3">请先选择一个有效的历史时间点</p>
-                            </td>
-                        </tr>
-                    `;
-                }
-                return;
-            }
+        // 基本验证
+        if (!timeId || timeId === 'undefined' || timeId === 'null' || timeId === '') {
+            console.error("无效的timeId参数");
+            console.groupEnd();
+            return;
         }
 
         // 确保timeId是字符串并去除空格
         timeId = String(timeId).trim();
+        console.log(`处理后的timeId: [${timeId}]`);
 
-        // 如果timeId仍然无效，显示错误并返回
-        if (!timeId || timeId === 'undefined' || timeId === 'null' || timeId === '') {
-            console.error("处理后的timeId仍然无效:", timeId);
+        // 如果timeId是"latest"，则加载最新数据
+        if (timeId === 'latest') {
+            console.log("加载最新数据");
+            fetchElectricityData();
+            console.groupEnd();
+            return;
+        }
 
+        // 如果不是数字格式，显示错误
+        if (!/^\d+$/.test(timeId)) {
+            console.error(`timeId不是有效的数字格式: [${timeId}]`);
             // 显示错误信息
             const roomDataElement = document.getElementById('room-data');
             if (roomDataElement) {
@@ -886,18 +800,15 @@ async function fetchHistoryData(timeId) {
                     <tr>
                         <td colspan="4" class="text-center py-5">
                             <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                            <p class="mt-3">无效的时间ID</p>
-                            <p class="small text-muted">timeId = ${timeId}</p>
+                            <p class="mt-3">无效的时间ID格式</p>
+                            <p class="small text-muted">时间ID不是数字格式: ${timeId}</p>
                         </td>
                     </tr>
                 `;
             }
-
-            updateDisplayTime('无效的查询日期', true);
+            console.groupEnd();
             return;
         }
-
-        console.log(`最终使用的timeId = ${timeId}`);
 
         // 显示加载状态
         const roomDataElement = document.getElementById('room-data');
@@ -916,11 +827,15 @@ async function fetchHistoryData(timeId) {
         }
 
         // 直接构建API URL - 与API测试工具完全相同的方式
-        const apiUrl = `/api/history_data/${timeId}`;
+        const apiUrl = `/api/history_data/${encodeURIComponent(timeId)}`;
 
-        console.log(`%c发送GET请求 %c${apiUrl}`,
+        console.log(`%c最终API请求URL %c${apiUrl}`,
             'color: white; background: purple; font-weight: bold',
             'color: blue; font-weight: bold');
+
+        // 直接在浏览器控制台显示可点击的链接，便于测试
+        console.log('可点击的测试链接: %o', { url: apiUrl, timeId: timeId });
+        console.log(`调试地址: http://localhost:5000${apiUrl}`);
 
         // 发送请求
         const response = await fetch(apiUrl);
@@ -982,6 +897,7 @@ async function fetchHistoryData(timeId) {
         }
 
         console.log("--------- 历史数据获取完成 ---------");
+        console.groupEnd();
     } catch (error) {
         console.error("获取历史数据出错:", error);
 
@@ -1000,6 +916,7 @@ async function fetchHistoryData(timeId) {
         }
 
         updateDisplayTime('获取数据出错', true);
+        console.groupEnd();
     }
 }
 
