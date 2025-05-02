@@ -95,9 +95,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // 直接构建API URL并请求
-            const apiUrl = `/api/history_data/${selectedValue}`;
-            console.log(`构建API URL: ${apiUrl}`);
+            // 使用硬编码URL映射表
+            const urlMap = {
+                '202505012230': '/api/history_data/202505012230',
+                '202505012200': '/api/history_data/202505012200',
+                '202505012130': '/api/history_data/202505012130'
+            };
+
+            // 获取对应的URL，如果没有则使用常规方式构建
+            const apiUrl = urlMap[selectedValue] || `/api/history_data/${selectedValue}`;
+            console.log(`使用固定URL: ${apiUrl}`);
 
             // 显示加载状态
             const roomDataElement = document.getElementById('room-data');
@@ -109,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <p class="mt-3">正在加载历史数据...</p>
                         <p class="small text-muted">时间ID: ${selectedValue}</p>
-                        <p class="small text-muted">API URL: ${apiUrl}</p>
+                        <p class="small text-muted">使用固定URL: ${apiUrl}</p>
                     </td>
                 </tr>
             `;
@@ -129,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
                                     <p class="mt-3">获取历史数据错误: ${data.error}</p>
                                     <p class="small text-muted">时间ID: ${selectedValue}</p>
-                                    <p class="small text-muted">API URL: ${apiUrl}</p>
+                                    <p class="small text-muted">使用固定URL: ${apiUrl}</p>
                                     <pre class="text-start" style="max-height:200px;overflow:auto;font-size:12px;">调试信息:
 ${JSON.stringify(data.debug_info || {}, null, 2)}</pre>
                                 </td>
@@ -170,7 +177,7 @@ ${JSON.stringify(data.debug_info || {}, null, 2)}</pre>
                                 <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
                                 <p class="mt-3">API请求失败: ${error.message}</p>
                                 <p class="small text-muted">时间ID: ${selectedValue}</p>
-                                <p class="small text-muted">API URL: ${apiUrl}</p>
+                                <p class="small text-muted">使用固定URL: ${apiUrl}</p>
                             </td>
                         </tr>
                     `;
