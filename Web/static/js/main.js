@@ -877,10 +877,13 @@ async function fetchHistoryData(timeId) {
         // 更新查询时间显示
         updateDisplayTime(data.query_time, true);
 
+        // 获取电量数据 - 支持两种属性名:data或electricity_data
+        const electricityData = data.electricity_data || data.data;
+
         // 处理并显示数据
-        if (data.electricity_data && data.electricity_data.length > 0) {
-            console.log(`成功获取到${data.electricity_data.length}条历史数据记录`);
-            displayRoomData(data.electricity_data);
+        if (electricityData && electricityData.length > 0) {
+            console.log(`成功获取到${electricityData.length}条历史数据记录`);
+            displayRoomData(electricityData);
         } else {
             console.warn("API返回的数据为空");
             if (roomDataElement) {

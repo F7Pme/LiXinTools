@@ -555,6 +555,7 @@ def get_history_data(time_id):
             response_data = {
                 'query_time': display_time,
                 'data': formatted_data,
+                'electricity_data': formatted_data,  # 添加electricity_data字段以兼容前端
                 'count': len(formatted_data),
                 'debug_info': debug_info
             }
