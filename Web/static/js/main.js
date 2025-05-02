@@ -18,24 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 获取历史电量查询时间点
     fetchHistoryTimes();
 
-    // 添加应用历史选择按钮事件
-    const applyHistoryBtn = document.getElementById('apply-history-selector');
-    if (applyHistoryBtn) {
-        applyHistoryBtn.addEventListener('click', function () {
-            const selector = document.getElementById('history-selector');
-            if (selector) {
-                const timeId = selector.value;
-                console.log(`应用按钮点击: 选择的timeId = ${timeId}`);
-
-                if (timeId === 'latest') {
-                    fetchElectricityData();
-                } else if (timeId && timeId !== 'undefined') {
-                    fetchHistoryData(timeId);
-                }
-            }
-        });
-    }
-
     // 搜索功能
     const searchButton = document.getElementById('search-button');
     const searchInput = document.getElementById('room-search');
@@ -582,9 +564,11 @@ async function fetchHistoryTimes() {
             console.log(`选择器变更: 选择了 [${value}]`);
 
             if (value === 'latest') {
+                console.log('加载最新数据');
                 fetchElectricityData();
             } else if (value && value !== 'undefined') {
-                console.log(`调用fetchHistoryData，参数: ${value}`);
+                console.log(`直接加载历史数据，timeId = [${value}]`);
+                // 立即触发数据获取
                 fetchHistoryData(value);
             } else {
                 console.error(`选择器值无效: ${value}`);
