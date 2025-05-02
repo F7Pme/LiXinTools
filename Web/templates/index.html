@@ -166,20 +166,10 @@
                     <div class="card-body">
                         <div class="mb-2">
                             <label for="test-time-id" class="form-label">Time ID:</label>
-                            <div class="input-group">
-                                <input type="text" id="test-time-id" class="form-control form-control-sm"
-                                    value="202505012230">
-                                <button class="btn btn-sm btn-secondary" id="use-selector-value">使用选择器值</button>
-                            </div>
-                            <div class="form-text text-muted" id="current-selector-value">
-                                当前选择器值: <span>latest</span>
-                            </div>
+                            <input type="text" id="test-time-id" class="form-control form-control-sm"
+                                value="202505012230">
                         </div>
-                        <div class="mb-2">
-                            <button id="test-direct-api" class="btn btn-sm btn-primary">直接测试API</button>
-                            <button id="debug-selector" class="btn btn-sm btn-warning ms-2">调试选择器</button>
-                        </div>
-                        <div id="api-test-result" class="mt-2 small" style="max-height:150px;overflow-y:auto;"></div>
+                        <button id="test-direct-api" class="btn btn-sm btn-primary">直接测试API</button>
                     </div>
                 </div>
             </div>
@@ -343,141 +333,6 @@
     <!-- 临时调试脚本 -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // 添加一个独立的调试工具到页面
-            const debugTools = document.createElement('div');
-            debugTools.className = 'container mt-5 mb-5 p-3 border rounded';
-            debugTools.style.backgroundColor = '#f8f9fa';
-            debugTools.innerHTML = `
-                <h4 class="text-center">API测试工具</h4>
-                <div class="row mt-3">
-                    <div class="col-md-12">
-                        <div class="mb-3">
-                            <label class="form-label">手动测试时间ID</label>
-                            <div class="input-group">
-                                <input type="text" id="test-time-id" class="form-control" placeholder="输入time_id (如: 202505012230)">
-                                <button class="btn btn-outline-primary" id="test-time-id-btn">测试</button>
-                            </div>
-                            <div class="form-text">输入时间ID (格式: YYYYMMDDHHmm)，直接测试API返回结果</div>
-                        </div>
-                        <div id="api-test-result" class="border rounded p-3 mt-3" style="max-height: 300px; overflow-y: auto; display: none;">
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            // 插入到页面中
-            document.body.insertBefore(debugTools, document.body.firstChild);
-
-            // 添加测试按钮的事件
-            document.getElementById('test-time-id-btn').addEventListener('click', async function () {
-                const timeIdInput = document.getElementById('test-time-id');
-                const timeId = timeIdInput.value.trim();
-
-                if (!timeId) {
-                    alert('请输入有效的时间ID');
-                    return;
-                }
-
-                const resultDiv = document.getElementById('api-test-result');
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = `
-                    <div class="d-flex justify-content-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">加载中...</span>
-                        </div>
-                    </div>
-                    <p class="text-center mt-2">正在请求API: /api/history_data/${timeId}...</p>
-                `;
-
-                try {
-                    const response = await fetch(`/api/history_data/${timeId}`);
-                    const data = await response.json();
-
-                    // 格式化显示结果
-                    const pre = document.createElement('pre');
-                    pre.style.maxHeight = '250px';
-                    pre.style.overflow = 'auto';
-                    pre.innerHTML = JSON.stringify(data, null, 2);
-
-                    // 更新结果
-                    resultDiv.innerHTML = `
-                        <h5>API响应结果</h5>
-                        <div class="alert ${data.error ? 'alert-danger' : 'alert-success'}">
-                            ${data.error ? `错误: ${data.error}` : `成功: 获取到 ${data.data ? data.data.length : 0} 条记录`}
-                        </div>
-                    `;
-                    resultDiv.appendChild(pre);
-
-                    // 添加到历史选择器中
-                    if (!data.error && data.data && data.data.length > 0) {
-                        const testDataButton = document.createElement('button');
-                        testDataButton.className = 'btn btn-success mt-2';
-                        testDataButton.textContent = '显示获取的数据';
-                        testDataButton.addEventListener('click', function () {
-                            // 存储数据用于搜索和排序
-                            window.originalRoomData = data.data;
-
-                            // 应用当前排序设置
-                            const sortedData = sortRoomData([...window.originalRoomData]);
-
-                            // 显示排序后的数据
-                            displayRoomData(sortedData);
-
-                            // 更新显示时间
-                            updateDisplayTime(data.query_time || timeId, true);
-
-                            // 关闭API测试结果
-                            resultDiv.style.display = 'none';
-
-                            // 滚动到顶部
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                        });
-                        resultDiv.appendChild(testDataButton);
-                    }
-                } catch (error) {
-                    resultDiv.innerHTML = `
-                        <div class="alert alert-danger">
-                            <h5>请求出错</h5>
-                            <p>${error.message}</p>
-                        </div>
-                    `;
-                }
-            });
-
-            // 为应用历史选择器按钮添加点击事件
-            const applyHistorySelectorBtn = document.getElementById('apply-history-selector');
-            if (applyHistorySelectorBtn) {
-                applyHistorySelectorBtn.addEventListener('click', function () {
-                    const historySelector = document.getElementById('history-selector');
-                    if (historySelector) {
-                        const selectedValue = historySelector.value;
-                        console.log("应用历史选择器按钮被点击，选中的值:", selectedValue);
-
-                        // 如果选择的是最新数据，则调用fetchElectricityData函数
-                        if (selectedValue === 'latest') {
-                            if (typeof window.fetchElectricityData === 'function') {
-                                window.fetchElectricityData();
-                            } else {
-                                console.error("fetchElectricityData函数未定义");
-                            }
-                        }
-                        // 否则，调用fetchHistoryData函数，传入选中的timeId
-                        else if (selectedValue && selectedValue !== 'undefined') {
-                            if (typeof window.fetchHistoryData === 'function') {
-                                window.fetchHistoryData(selectedValue);
-                            } else {
-                                console.error("fetchHistoryData函数未定义");
-                            }
-                        } else {
-                            console.error("选择器值无效:", selectedValue);
-                            alert("请选择有效的时间点");
-                        }
-                    } else {
-                        console.error("找不到历史选择器元素");
-                    }
-                });
-            }
-
             // 测试API按钮
             document.getElementById('test-api-btn').addEventListener('click', async function () {
                 try {
@@ -523,6 +378,103 @@
                 } catch (e) {
                     console.error('API调用出错:', e);
                     alert('API调用出错: ' + e.message);
+                }
+            });
+
+            // 直接测试API按钮
+            document.getElementById('test-direct-api').addEventListener('click', async function () {
+                try {
+                    const timeIdInput = document.getElementById('test-time-id');
+                    const timeId = timeIdInput.value.trim();
+
+                    if (!timeId) {
+                        alert('请输入Time ID');
+                        return;
+                    }
+
+                    console.log(`直接测试API，使用time_id=${timeId}`);
+
+                    // 发送请求
+                    const response = await fetch(`/api/history_data/${timeId}`);
+                    const data = await response.json();
+
+                    console.log('API返回数据:', data);
+
+                    // 显示结果
+                    const pre = document.createElement('pre');
+                    pre.style.textAlign = 'left';
+                    pre.style.maxHeight = '400px';
+                    pre.style.overflow = 'auto';
+                    pre.style.padding = '10px';
+                    pre.style.backgroundColor = '#f5f5f5';
+                    pre.style.borderRadius = '5px';
+                    pre.textContent = JSON.stringify(data, null, 2);
+
+                    // 创建模态框显示
+                    const modalDiv = document.createElement('div');
+                    modalDiv.className = 'modal fade';
+                    modalDiv.id = 'directApiResultModal';
+                    modalDiv.innerHTML = `
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">直接API测试结果</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="alert alert-info">
+                                        <strong>Time ID:</strong> ${timeId}
+                                    </div>
+                                    <div id="direct-api-result-content"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary" id="apply-to-selector">应用到选择器</button>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modalDiv);
+                    document.getElementById('direct-api-result-content').appendChild(pre);
+
+                    // 显示模态框
+                    const modal = new bootstrap.Modal(document.getElementById('directApiResultModal'));
+                    modal.show();
+
+                    // 添加应用到选择器按钮事件
+                    document.getElementById('apply-to-selector').addEventListener('click', function () {
+                        if (data.error) {
+                            alert('API返回错误，无法应用到选择器');
+                            return;
+                        }
+
+                        // 直接调用显示历史数据函数
+                        try {
+                            window.originalRoomData = data.data || [];
+
+                            if (data.data && data.data.length > 0) {
+                                // 应用当前排序设置
+                                const sortedData = window.sortRoomData([...window.originalRoomData]);
+
+                                // 显示排序后的数据
+                                window.displayRoomData(sortedData);
+
+                                // 更新时间显示
+                                window.updateDisplayTime(data.query_time || '未知时间', true);
+
+                                alert('数据已成功应用到表格中');
+                            } else {
+                                alert('API返回的数据为空，无法应用');
+                            }
+                        } catch (e) {
+                            console.error('应用数据出错:', e);
+                            alert('应用数据出错: ' + e.message);
+                        }
+                    });
+
+                } catch (e) {
+                    console.error('直接API测试出错:', e);
+                    alert('直接API测试出错: ' + e.message);
                 }
             });
 
