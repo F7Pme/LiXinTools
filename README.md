@@ -128,9 +128,9 @@ build_exe.bat
 
 ## 部署环境
 
-- 服务器：京东云轻量云主机 (117.72.194.27)
+- 服务器：京东云轻量云主机 (117.72.194.27)，https://lixinez.icu/
 - 操作系统：Ubuntu
-- 部署架构：Flask应用(5000端口) + MySQL数据库 + Nginx反向代理
+- 部署架构：Flask应用 + MySQL数据库 + Redis缓存 + Nginx反向代理
 
 ## 核心部署步骤
 
@@ -138,7 +138,7 @@ build_exe.bat
 ```bash
 # 安装必要软件包
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y git python3 python3-pip python3-venv mysql-server nginx
+sudo apt install -y git python3 python3-pip python3-venv mysql-server nginx redis-server
 ```
 
 2. **代码部署**
@@ -168,23 +168,57 @@ sudo mysql -e "GRANT ALL PRIVILEGES ON electricity_data.* TO 'elecuser'@'localho
 sudo mysql -e "FLUSH PRIVILEGES;"
 ```
 
-4. **Python环境设置**
+4. **Redis配置**
+```bash
+# 编辑Redis配置
+sudo nano /etc/redis/redis.conf
+
+# 建议修改以下设置:
+# daemonize yes
+# maxmemory 500mb
+# maxmemory-policy allkeys-lru
+# requirepass 您的密码  # 设置强密码
+
+# 重启Redis服务
+sudo systemctl restart redis-server
+sudo systemctl enable redis-server
+```
+
+5. **Python环境设置**
 ```bash
 # 创建虚拟环境并安装依赖
 cd /var/www/LiXinTools
 python3 -m venv venv
 source venv/bin/activate
-pip install flask pymysql beautifulsoup4 requests cryptography
+pip install flask pymysql beautifulsoup4 requests cryptography redis
 ```
 
-5. **定时任务配置**
+6. **静态资源本地化**
+```bash
+# 创建本地库目录
+cd /var/www/LiXinTools/Web/static
+mkdir -p lib/bootstrap/css lib/bootstrap/js lib/bootstrap-icons/font/fonts lib/chart.js
+
+# 下载资源到本地
+wget https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/css/bootstrap.min.css -O lib/bootstrap/css/bootstrap.min.css
+wget https://cdn.bootcdn.net/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js -O lib/bootstrap/js/bootstrap.bundle.min.js
+wget https://cdn.bootcdn.net/ajax/libs/Chart.js/3.7.1/chart.min.js -O lib/chart.js/chart.min.js
+wget https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.css -O lib/bootstrap-icons/font/bootstrap-icons.css
+wget https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/fonts/bootstrap-icons.woff -O lib/bootstrap-icons/font/fonts/bootstrap-icons.woff
+wget https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/fonts/bootstrap-icons.woff2 -O lib/bootstrap-icons/font/fonts/bootstrap-icons.woff2
+
+# 修改CSS中字体路径
+sed -i 's|https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/fonts/|fonts/|g' lib/bootstrap-icons/font/bootstrap-icons.css
+```
+
+7. **定时任务配置**
 ```bash
 # 设置30分钟查询一次
 crontab -e
 # 添加: */30 * * * * cd /var/www/LiXinTools && ./venv/bin/python ./scripts/query_all_rooms.py >> /var/log/electricity_query.log 2>&1
 ```
 
-6. **Web服务配置**
+8. **Web服务配置**
 ```bash
 # 创建systemd服务
 sudo nano /etc/systemd/system/lixintools-web.service
@@ -196,7 +230,7 @@ sudo systemctl enable lixintools-web
 sudo systemctl start lixintools-web
 ```
 
-7. **Nginx配置**
+9. **Nginx配置**
 ```bash
 # 创建网站配置
 sudo nano /etc/nginx/sites-available/lixintools
@@ -207,6 +241,15 @@ sudo ln -s /etc/nginx/sites-available/lixintools /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 sudo ufw allow 'Nginx Full'
+```
+
+10. **SSL证书配置**
+```bash
+# 安装Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# 获取SSL证书
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 ```
 
 ## 常用配置文件
@@ -220,7 +263,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/var/www/LiXinTools
-ExecStart=/var/www/LiXinTools/venv/bin/python -m Web.app --host=0.0.0.0
+ExecStart=/var/www/LiXinTools/venv/bin/python -m Web.app
 Restart=always
 RestartSec=10
 
@@ -232,7 +275,7 @@ WantedBy=multi-user.target
 ```
 server {
     listen 80;
-    server_name xxx;
+    server_name lixinez.icu www.lixinez.icu;
 
     location /static {
         alias /var/www/LiXinTools/Web/static;
@@ -240,7 +283,7 @@ server {
     }
 
     location / {
-        proxy_pass xxx;
+        proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -254,10 +297,19 @@ server {
 # 服务管理
 sudo systemctl start/stop/restart lixintools-web
 sudo systemctl status lixintools-web
+sudo systemctl restart nginx
+sudo systemctl restart redis-server
 
 # 数据库操作
 mysql -u elecuser -p123456 electricity_data
 mysqldump -u elecuser -p123456 electricity_data > backup.sql
+
+# Redis操作
+redis-cli
+> AUTH 您的密码
+> PING
+> KEYS *
+> FLUSHALL  # 清空所有缓存
 
 # 手动执行查询
 cd /var/www/LiXinTools && source venv/bin/activate
@@ -270,4 +322,5 @@ journalctl -u lixintools-web
 # Git操作
 git remote add jdcloud root@117.72.194.27:/opt/LiXinTools
 git push jdcloud main
+git clone root@117.72.194.27:/var/www/LiXinTools  # 将云服务器仓库克隆到本地
 ```
