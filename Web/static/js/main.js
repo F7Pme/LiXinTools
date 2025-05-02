@@ -850,7 +850,19 @@ async function fetchHistoryData(timeId) {
         // 处理并显示数据
         if (electricityData && electricityData.length > 0) {
             console.log(`成功获取到${electricityData.length}条历史数据记录`);
-            displayRoomData(electricityData);
+
+            // 保存原始数据
+            window.originalRoomData = electricityData;
+
+            // 设置默认排序方式为按房间号排序
+            window.currentSort = { field: 'room', direction: 'asc' };
+
+            // 更新排序样式
+            updateSortHeaderStyles();
+
+            // 排序并显示数据
+            const sortedData = sortRoomData([...electricityData]);
+            displayRoomData(sortedData);
         } else {
             console.warn("API返回的数据为空");
             if (roomDataElement) {
