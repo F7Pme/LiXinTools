@@ -702,39 +702,6 @@ async function fetchHistoryTimes() {
                 }
             });
 
-            // 添加调试按钮
-            const debugButton = document.createElement('button');
-            debugButton.type = 'button';
-            debugButton.className = 'btn btn-sm btn-outline-secondary mt-2';
-            debugButton.textContent = '调试选择器';
-            debugButton.style.width = '100%';
-            debugButton.addEventListener('click', function () {
-                const selector = document.getElementById('history-selector');
-                if (!selector) {
-                    alert('找不到选择器元素!');
-                    return;
-                }
-
-                console.group('选择器调试信息');
-                console.log("当前选择器值:", selector.value);
-                console.log("选择器选项数量:", selector.options.length);
-
-                console.log("所有选项:");
-                for (let i = 0; i < selector.options.length; i++) {
-                    const opt = selector.options[i];
-                    console.log(`  #${i}: value=[${opt.value}], text=[${opt.textContent}]`);
-                }
-
-                const selectedOption = selector.options[selector.selectedIndex];
-                console.log("当前选中:", selectedOption ?
-                    `index=${selector.selectedIndex}, value=[${selectedOption.value}], text=[${selectedOption.textContent}]` :
-                    "未选中任何选项");
-                console.groupEnd();
-
-                alert("选择器调试信息已打印到控制台");
-            });
-
-            container.appendChild(debugButton);
         } else {
             // 添加"暂无历史数据"选项
             const noDataOption = document.createElement('option');
