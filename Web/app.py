@@ -335,9 +335,13 @@ def get_history_data(time_id):
             'function': 'get_history_data'
         }
         
+        # 记录详细调试信息
+        print(f"-------- 开始处理历史数据请求 --------")
+        print(f"原始time_id: [{time_id}], 类型: {type(time_id).__name__}, 长度: {len(str(time_id)) if time_id else 0}")
+        
         # 验证time_id
         if not time_id or time_id == 'undefined' or time_id == 'null':
-            print(f"无效的时间ID: {time_id}")
+            print(f"无效的时间ID: [{time_id}]")
             return jsonify({
                 'error': '无效的时间ID',
                 'query_time': '未知时间',
