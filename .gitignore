@@ -9,6 +9,9 @@ build/*
 dist/
 dist/*
 
+# 数据库密码文件
+config/db_password.txt
+
 # Python
 __pycache__/
 *.py[cod]

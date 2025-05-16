@@ -114,6 +114,106 @@ build_exe.bat
 
 启动时会自动检测开发者模式设置，在开发者模式下会显示日志窗口，方便调试和开发。
 
+## lixinez.icu网站文档
+
+### 网站概述
+
+- **网址**: https://lixinez.icu
+- **服务器**: 京东云轻量云主机 (117.72.194.27)
+- **技术栈**: Flask + MySQL + Redis + Nginx
+- **备案号**: 沪ICP备2025124588号-1
+
+### 网站结构
+
+```
+/var/www/LiXinTools/        # 主工作目录
+├── Web/                    # Web应用程序目录
+│   ├── app.py              # Flask主程序
+│   ├── templates/          # HTML模板
+│   │   └── index.html      # 主页模板
+│   └── static/             # 静态资源
+│       ├── css/            # 样式表
+│       ├── js/             # JavaScript
+│       ├── pic/            # 图片资源
+│       └── lib/            # 第三方库(本地化CDN资源)
+│           ├── bootstrap/  # Bootstrap库
+│           ├── chart.js/   # Chart.js图表库
+│           └── bootstrap-icons/ # 图标库
+├── scripts/                # 脚本目录
+│   └── query_all_rooms.py  # 定时查询脚本
+├── utils/                  # 工具目录
+│   └── analysis_electricity.py # 电量分析工具
+└── venv/                   # Python虚拟环境
+```
+
+### 核心服务
+
+1. **Nginx**: 前端反向代理，处理静态资源和SSL
+2. **Flask**: 网站后端API和页面渲染
+3. **MySQL**: 存储电量查询数据
+4. **Redis**: 缓存热点数据减轻数据库压力
+5. **Cron**: 定时任务，每30分钟查询一次电量
+
+### 开发与部署流程
+
+1. 本地开发代码并提交Git
+2. 推送到云服务器Git仓库: `git push jdcloud main`
+3. 服务器Git钩子自动部署代码到工作目录
+4. 重启相关服务使更改生效
+
+### 常用维护命令
+
+```bash
+# 服务管理
+sudo systemctl restart lixintools-web  # 重启Web应用
+sudo systemctl restart nginx           # 重启Nginx
+sudo systemctl restart redis-server    # 重启Redis
+sudo systemctl restart mysql           # 重启MySQL
+
+# 日志查看
+tail -f /var/log/electricity_query.log # 查看电量查询日志
+journalctl -u lixintools-web -f        # 查看Web应用日志
+sudo tail -f /var/log/nginx/access.log # 查看Nginx访问日志
+sudo tail -f /var/log/nginx/error.log  # 查看Nginx错误日志
+
+# 数据库操作
+mysql -u elecuser -p                   # 登录MySQL
+> use electricity_data;                # 选择数据库
+> SELECT * FROM query_history LIMIT 5; # 查询示例
+
+# Redis缓存操作
+redis-cli                              # 连接Redis
+> AUTH 您的密码                         # 认证(如果设置了密码)
+> KEYS *                               # 查看所有键
+> GET get_latest_query_time            # 查看缓存值
+> FLUSHALL                             # 清空所有缓存
+
+# 代码管理
+git clone root@117.72.194.27:/opt/LiXinTools  # 克隆仓库到本地
+git push jdcloud main                         # 推送更新到服务器
+
+# 文件传输
+scp -r local_file.py root@117.72.194.27:/var/www/LiXinTools/  # 上传文件
+scp -r root@117.72.194.27:/var/www/LiXinTools/Web ./          # 下载文件
+```
+
+### 故障处理
+
+1. **网站无法访问**:
+   - 检查服务状态: `systemctl status nginx lixintools-web`
+   - 检查日志: `journalctl -u lixintools-web -n 50`
+   - 尝试重启服务: `systemctl restart lixintools-web nginx`
+
+2. **数据未更新**:
+   - 检查定时任务: `crontab -l`
+   - 检查查询日志: `tail -f /var/log/electricity_query.log`
+   - 手动执行查询: `cd /var/www/LiXinTools && source venv/bin/activate && python scripts/query_all_rooms.py`
+
+3. **页面加载缓慢**:
+   - 检查Redis缓存: `redis-cli PING`
+   - 查看MySQL负载: `mysql -e "SHOW PROCESSLIST"`
+   - 检查服务器资源: `htop`
+
 ## 许可证
 
 [MIT](LICENSE)
@@ -121,206 +221,3 @@ build_exe.bat
 ## 贡献
 
 欢迎提交问题报告和贡献代码！ 
-
----
-
-# 电量查询系统云服务器部署文档
-
-## 部署环境
-
-- 服务器：京东云轻量云主机 (117.72.194.27)，https://lixinez.icu/
-- 操作系统：Ubuntu
-- 部署架构：Flask应用 + MySQL数据库 + Redis缓存 + Nginx反向代理
-
-## 核心部署步骤
-
-1. **系统准备**
-```bash
-# 安装必要软件包
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y git python3 python3-pip python3-venv mysql-server nginx redis-server
-```
-
-2. **代码部署**
-```bash
-# 创建Git仓库和工作目录
-mkdir -p /opt/LiXinTools && cd /opt/LiXinTools
-git init --bare
-
-# 设置Git钩子
-cat > /opt/LiXinTools/hooks/post-receive << 'EOL'
-#!/bin/bash
-GIT_WORK_TREE=/var/www/LiXinTools git checkout -f main
-echo "部署已完成!"
-EOL
-chmod +x /opt/LiXinTools/hooks/post-receive
-
-# 创建工作目录
-mkdir -p /var/www/LiXinTools
-```
-
-3. **数据库配置**
-```bash
-# 创建数据库和用户
-sudo mysql -e "CREATE DATABASE electricity_data;"
-sudo mysql -e "CREATE USER 'elecuser'@'localhost' IDENTIFIED WITH mysql_native_password BY '123456';"
-sudo mysql -e "GRANT ALL PRIVILEGES ON electricity_data.* TO 'elecuser'@'localhost';"
-sudo mysql -e "FLUSH PRIVILEGES;"
-```
-
-4. **Redis配置**
-```bash
-# 编辑Redis配置
-sudo nano /etc/redis/redis.conf
-
-# 建议修改以下设置:
-# daemonize yes
-# maxmemory 500mb
-# maxmemory-policy allkeys-lru
-# requirepass 您的密码  # 设置强密码
-
-# 重启Redis服务
-sudo systemctl restart redis-server
-sudo systemctl enable redis-server
-```
-
-5. **Python环境设置**
-```bash
-# 创建虚拟环境并安装依赖
-cd /var/www/LiXinTools
-python3 -m venv venv
-source venv/bin/activate
-pip install flask pymysql beautifulsoup4 requests cryptography redis
-```
-
-6. **静态资源本地化**
-```bash
-# 创建本地库目录
-cd /var/www/LiXinTools/Web/static
-mkdir -p lib/bootstrap/css lib/bootstrap/js lib/bootstrap-icons/font/fonts lib/chart.js
-
-# 下载资源到本地
-wget https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.3/css/bootstrap.min.css -O lib/bootstrap/css/bootstrap.min.css
-wget https://cdn.bootcdn.net/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js -O lib/bootstrap/js/bootstrap.bundle.min.js
-wget https://cdn.bootcdn.net/ajax/libs/Chart.js/3.7.1/chart.min.js -O lib/chart.js/chart.min.js
-wget https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.css -O lib/bootstrap-icons/font/bootstrap-icons.css
-wget https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/fonts/bootstrap-icons.woff -O lib/bootstrap-icons/font/fonts/bootstrap-icons.woff
-wget https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/fonts/bootstrap-icons.woff2 -O lib/bootstrap-icons/font/fonts/bootstrap-icons.woff2
-
-# 修改CSS中字体路径
-sed -i 's|https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.10.0/font/fonts/|fonts/|g' lib/bootstrap-icons/font/bootstrap-icons.css
-```
-
-7. **定时任务配置**
-```bash
-# 设置30分钟查询一次
-crontab -e
-# 添加: */30 * * * * cd /var/www/LiXinTools && ./venv/bin/python ./scripts/query_all_rooms.py >> /var/log/electricity_query.log 2>&1
-```
-
-8. **Web服务配置**
-```bash
-# 创建systemd服务
-sudo nano /etc/systemd/system/lixintools-web.service
-# 添加服务配置（见下方服务配置内容）
-
-# 启用服务
-sudo systemctl daemon-reload
-sudo systemctl enable lixintools-web
-sudo systemctl start lixintools-web
-```
-
-9. **Nginx配置**
-```bash
-# 创建网站配置
-sudo nano /etc/nginx/sites-available/lixintools
-# 添加Nginx配置（见下方Nginx配置内容）
-
-# 启用站点
-sudo ln -s /etc/nginx/sites-available/lixintools /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-sudo ufw allow 'Nginx Full'
-```
-
-10. **SSL证书配置**
-```bash
-# 安装Certbot
-sudo apt install -y certbot python3-certbot-nginx
-
-# 获取SSL证书
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
-```
-
-## 常用配置文件
-
-### systemd服务配置
-```
-[Unit]
-Description=LiXinTools Web Application
-After=network.target
-
-[Service]
-User=root
-WorkingDirectory=/var/www/LiXinTools
-ExecStart=/var/www/LiXinTools/venv/bin/python -m Web.app
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Nginx配置
-```
-server {
-    listen 80;
-    server_name lixinez.icu www.lixinez.icu;
-
-    location /static {
-        alias /var/www/LiXinTools/Web/static;
-        expires 30d;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-}
-```
-
-## 常用维护命令
-
-```bash
-# 服务管理
-sudo systemctl start/stop/restart lixintools-web
-sudo systemctl status lixintools-web
-sudo systemctl restart nginx
-sudo systemctl restart redis-server
-
-# 数据库操作
-mysql -u elecuser -p123456 electricity_data
-mysqldump -u elecuser -p123456 electricity_data > backup.sql
-
-# Redis操作
-redis-cli
-> AUTH 您的密码
-> PING
-> KEYS *
-> FLUSHALL  # 清空所有缓存
-
-# 手动执行查询
-cd /var/www/LiXinTools && source venv/bin/activate
-python scripts/query_all_rooms.py
-
-# 查看日志
-tail -f /var/log/electricity_query.log
-journalctl -u lixintools-web
-
-# Git操作
-git remote add jdcloud root@117.72.194.27:/opt/LiXinTools
-git push jdcloud main
-git clone root@117.72.194.27:/var/www/LiXinTools  # 将云服务器仓库克隆到本地
-```
