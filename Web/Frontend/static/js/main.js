@@ -198,11 +198,11 @@ function displayElectricityData(data) {
  */
 function getStatusBadge(electricity) {
     if (electricity <= 0) {
-        return '<span class="badge bg-danger">紧急</span>';
+        return '<span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>紧急</span>';
     } else if (electricity <= 10) {
-        return '<span class="badge bg-warning text-dark">警告</span>';
+        return '<span class="badge bg-warning"><i class="bi bi-exclamation-fill me-1"></i>警告</span>';
     } else {
-        return '<span class="badge bg-success">正常</span>';
+        return '<span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>正常</span>';
     }
 }
 
@@ -232,6 +232,11 @@ function updateOverallStats(data) {
     const warningCount = data.filter(item => item.electricity > 0 && item.electricity <= 10).length;
     const normalCount = data.filter(item => item.electricity > 10).length;
 
+    // 计算百分比
+    const criticalPercent = (criticalCount / totalRooms * 100).toFixed(1);
+    const warningPercent = (warningCount / totalRooms * 100).toFixed(1);
+    const normalPercent = (normalCount / totalRooms * 100).toFixed(1);
+
     document.getElementById('overall-stats').innerHTML = `
         <div class="row mb-2">
             <div class="col-6">
@@ -254,16 +259,34 @@ function updateOverallStats(data) {
             </div>
         </div>
         
-        <div class="text-muted small mb-2">电量状态分布</div>
-        <div class="d-flex justify-content-between mb-1 small">
-            <span class="text-danger">紧急 (${criticalCount})</span>
-            <span class="text-warning">警告 (${warningCount})</span>
-            <span class="text-success">正常 (${normalCount})</span>
+        <div class="d-flex justify-content-between mb-2 small">
+            <div>
+                <span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill"></i></span>
+                <span class="ms-1">紧急 (${criticalCount})</span>
+            </div>
+            <div>
+                <span class="badge bg-warning"><i class="bi bi-exclamation-fill"></i></span>
+                <span class="ms-1">警告 (${warningCount})</span>
+            </div>
+            <div>
+                <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i></span>
+                <span class="ms-1">正常 (${normalCount})</span>
+            </div>
         </div>
-        <div class="progress mb-3" style="height: 24px; border-radius: 12px; overflow: hidden;">
-            <div class="progress-bar bg-danger" style="width: ${(criticalCount / totalRooms * 100)}%" title="紧急: ${criticalCount}间">${criticalCount > 0 ? criticalCount : ''}</div>
-            <div class="progress-bar bg-warning" style="width: ${(warningCount / totalRooms * 100)}%" title="警告: ${warningCount}间">${warningCount > 0 ? warningCount : ''}</div>
-            <div class="progress-bar bg-success" style="width: ${(normalCount / totalRooms * 100)}%" title="正常: ${normalCount}间">${normalCount > 0 ? normalCount : ''}</div>
+        
+        <div class="progress">
+            <div class="progress-bar bg-danger" style="width: ${criticalPercent}%" 
+                title="紧急: ${criticalCount}间 (${criticalPercent}%)">
+                ${criticalCount > 0 ? `${criticalCount} (${criticalPercent}%)` : ''}
+            </div>
+            <div class="progress-bar bg-warning" style="width: ${warningPercent}%" 
+                title="警告: ${warningCount}间 (${warningPercent}%)">
+                ${warningCount > 0 ? `${warningCount} (${warningPercent}%)` : ''}
+            </div>
+            <div class="progress-bar bg-success" style="width: ${normalPercent}%" 
+                title="正常: ${normalCount}间 (${normalPercent}%)">
+                ${normalCount > 0 ? `${normalCount} (${normalPercent}%)` : ''}
+            </div>
         </div>
     `;
 }
@@ -421,30 +444,54 @@ function fetchBuildingStats() {
 
                 // 计算进度条颜色 - 基于平均电量
                 let progressClass = "bg-success";
+                let statusIcon = "bi-lightning-charge-fill";
+                let statusText = "正常";
+
                 if (building.average <= 0) {
                     progressClass = "bg-danger";
+                    statusIcon = "bi-exclamation-triangle-fill";
+                    statusText = "紧急";
                 } else if (building.average <= 10) {
                     progressClass = "bg-warning";
+                    statusIcon = "bi-exclamation-fill";
+                    statusText = "警告";
                 }
 
                 return `
-                    <div class="card mb-2">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between">
-                                <h6 class="card-title mb-1">${building.building}栋</h6>
-                                <span class="badge bg-primary">${building.count}间</span>
+                    <div class="card mb-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-building"></i> ${building.building}栋
+                                </h5>
+                                <div>
+                                    <span class="badge bg-primary">${building.count}间</span>
+                                    <span class="badge ${progressClass} ms-1">
+                                        <i class="bi ${statusIcon}"></i> ${statusText}
+                                    </span>
+                                </div>
                             </div>
-                            <div class="d-flex justify-content-between mt-1 small text-muted">
-                                <span>总电量: ${building.totalElectricity.toFixed(1)}度</span>
-                                <span>平均: ${building.average.toFixed(1)}度</span>
+                            
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <div class="small text-muted">总电量</div>
+                                    <div class="fw-bold">${building.totalElectricity.toFixed(1)}度</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="small text-muted">平均</div>
+                                    <div class="fw-bold">${building.average.toFixed(1)}度</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="small text-muted">范围</div>
+                                    <div class="fw-bold">${building.min.toFixed(1)}~${building.max.toFixed(1)}</div>
+                                </div>
                             </div>
-                            <div class="progress mt-2" style="height: 8px; border-radius: 4px;">
-                                <div class="progress-bar ${progressClass}" style="width: ${electricityPercentage}%" 
-                                     title="总电量: ${building.totalElectricity.toFixed(1)}度"></div>
-                            </div>
-                            <div class="d-flex justify-content-between mt-1 small text-muted">
-                                <span>最低: ${building.min.toFixed(1)}</span>
-                                <span>最高: ${building.max.toFixed(1)}</span>
+                            
+                            <div class="progress">
+                                <div class="progress-bar ${progressClass}" 
+                                     style="width: ${electricityPercentage}%" 
+                                     title="总电量: ${building.totalElectricity.toFixed(1)}度">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -660,7 +707,14 @@ function sortRoomData(data, field, direction) {
                 // 按房间号排序 - 特殊处理逻辑
                 const roomA = parseRoomNumber(a.room);
                 const roomB = parseRoomNumber(b.room);
-                result = compareRoomNumbers(roomA, roomB);
+
+                // 首先比较了楼栋
+                if (a.building !== b.building) {
+                    result = parseInt(a.building) - parseInt(b.building);
+                } else {
+                    // 楼栋相同，使用compareRoomNumbers比较
+                    result = compareRoomNumbers(roomA, roomB);
+                }
                 break;
 
             case 'electricity':
@@ -689,16 +743,31 @@ function sortRoomData(data, field, direction) {
  * 解析房间号
  */
 function parseRoomNumber(roomStr) {
-    // 处理形式为 "1-1001" 的房间号，其中1是楼栋，1001表示10楼01房间
+    // 处理形式为 "4-1312" 的房间号，其中4是楼栋，13表示13楼，12表示房间号
     const parts = roomStr.split('-');
 
     if (parts.length > 1) {
+        const building = parseInt(parts[0]);
         const roomNumber = parts[1];
-        // 对于4位数的房间号，第1-2位是楼层，后2位是房间号
-        if (roomNumber.length === 4) {
+
+        // 对于3位或4位数的房间号
+        if (roomNumber.length >= 3) {
+            // 最后两位是房间号
+            const room = parseInt(roomNumber.substring(roomNumber.length - 2));
+            // 前面的部分是楼层
+            const floor = parseInt(roomNumber.substring(0, roomNumber.length - 2));
+
             return {
-                floor: parseInt(roomNumber.substring(0, 2)),
-                room: parseInt(roomNumber.substring(2))
+                building: building,
+                floor: floor,
+                room: room
+            };
+        } else {
+            // 对于小于3位的房间号，可能是简化表示，如1-01
+            return {
+                building: building,
+                floor: 0,
+                room: parseInt(roomNumber)
             };
         }
     }
@@ -706,25 +775,31 @@ function parseRoomNumber(roomStr) {
     // 如果不是标准格式，尝试提取数字部分
     const matches = roomStr.match(/(\d+)/g);
     if (matches && matches.length > 0) {
-        const roomNum = parseInt(matches[matches.length - 1]);
-        if (roomNum > 100) {
-            return {
-                floor: Math.floor(roomNum / 100),
-                room: roomNum % 100
-            };
-        }
-        return { floor: 0, room: roomNum };
+        return {
+            building: 0,
+            floor: 0,
+            room: parseInt(matches[matches.length - 1])
+        };
     }
 
     // 无法解析时返回默认值
-    return { floor: 0, room: 0 };
+    return {
+        building: 0,
+        floor: 0,
+        room: 0
+    };
 }
 
 /**
  * 比较两个房间号
  */
 function compareRoomNumbers(roomA, roomB) {
-    // 首先比较楼层
+    // 首先比较楼栋
+    if (roomA.building !== roomB.building) {
+        return roomA.building - roomB.building;
+    }
+
+    // 楼栋相同则比较楼层
     if (roomA.floor !== roomB.floor) {
         return roomA.floor - roomB.floor;
     }
@@ -819,29 +894,50 @@ function showRoomHistory(building, room) {
                 return new Date(a.query_time) - new Date(b.query_time);
             });
 
-            // 计算消耗电量
+            // 计算消耗电量并添加变化状态标记
             for (let i = 1; i < sortedHistory.length; i++) {
                 const prev = sortedHistory[i - 1].electricity;
                 const curr = sortedHistory[i].electricity;
 
                 // 如果当前电量比前一次高，可能是充值了
-                sortedHistory[i].consumed = prev > curr ? (prev - curr).toFixed(2) : '0.00';
+                const diff = prev - curr;
+                sortedHistory[i].consumed = Math.max(0, diff).toFixed(2);
+                sortedHistory[i].change = diff > 0 ? 'decrease' : (diff < 0 ? 'increase' : 'same');
             }
-            sortedHistory[0].consumed = '0.00';  // 第一条记录没有消耗
+            // 第一条记录没有消耗和变化
+            sortedHistory[0].consumed = '0.00';
+            sortedHistory[0].change = 'same';
 
-            // 显示表格数据
-            const tableHtml = sortedHistory.reverse().map(record => `
-                <tr>
-                    <td>${record.query_time}</td>
-                    <td>${record.electricity.toFixed(2)}</td>
-                    <td>${record.consumed}</td>
-                </tr>
-            `).join('');
+            // 显示表格数据 - 倒序展示，最新的在上面
+            const tableHtml = sortedHistory.reverse().map(record => {
+                // 根据电量变化添加不同的图标和样式
+                let changeIcon = '';
+                let changeStyle = '';
+
+                if (record.change === 'decrease') {
+                    changeIcon = '<i class="bi bi-arrow-down-short text-danger"></i>';
+                    changeStyle = 'text-danger';
+                } else if (record.change === 'increase') {
+                    changeIcon = '<i class="bi bi-arrow-up-short text-success"></i>';
+                    changeStyle = 'text-success';
+                }
+
+                // 格式化时间为更易读的格式
+                const formattedTime = formatQueryTime(record.query_time);
+
+                return `
+                    <tr>
+                        <td>${formattedTime}</td>
+                        <td>${record.electricity.toFixed(2)}</td>
+                        <td class="${changeStyle}">${changeIcon} ${record.consumed}</td>
+                    </tr>
+                `;
+            }).join('');
 
             document.getElementById('room-history-data').innerHTML = tableHtml;
 
-            // 显示图表
-            createElectricityChart(sortedHistory.reverse());  // 图表需要按时间正序排列
+            // 显示图表 - 需要按时间正序排列
+            createElectricityChart(sortedHistory.reverse());
         })
         .catch(error => {
             console.error('获取房间历史数据出错:', error);
@@ -849,6 +945,21 @@ function showRoomHistory(building, room) {
             document.getElementById('room-history-error').style.display = 'block';
             document.getElementById('room-history-error').textContent = '获取数据时出错: ' + error.message;
         });
+}
+
+/**
+ * 格式化查询时间
+ */
+function formatQueryTime(timeString) {
+    const date = new Date(timeString.replace(/-/g, '/'));
+
+    // 获取月、日、小时、分钟，确保两位数显示
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hour = date.getHours().toString().padStart(2, '0');
+    const minute = date.getMinutes().toString().padStart(2, '0');
+
+    return `${month}-${day} ${hour}:${minute}`;
 }
 
 /**
@@ -883,12 +994,16 @@ function createElectricityChart(history) {
     try {
         // 准备数据
         const labels = history.map(item => {
-            // 简化时间显示，只显示MM-DD HH:MM
-            const date = new Date(item.query_time.replace(/-/g, '/'));
-            return `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            // 使用已格式化的时间
+            return formatQueryTime(item.query_time);
         });
 
         const data = history.map(item => item.electricity);
+
+        // 找出最小和最大电量值，用于设置Y轴范围
+        let minValue = Math.min(...data) * 0.9; // 下限稍微低一点
+        minValue = Math.max(0, minValue); // 但不要小于0
+        const maxValue = Math.max(...data) * 1.1; // 上限稍微高一点
 
         // 创建图表
         window.electricityChart = new Chart(ctx, {
@@ -898,11 +1013,15 @@ function createElectricityChart(history) {
                 datasets: [{
                     label: '剩余电量(度)',
                     data: data,
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    tension: 0.2,
+                    backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 2,
+                    tension: 0.3,
                     pointRadius: 5,
-                    pointHoverRadius: 7
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: 'rgba(13, 110, 253, 1)',
+                    pointBorderColor: 'rgba(255, 255, 255, 1)',
+                    pointBorderWidth: 1.5
                 }]
             },
             options: {
@@ -910,6 +1029,14 @@ function createElectricityChart(history) {
                 maintainAspectRatio: false,
                 plugins: {
                     tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 10,
+                        titleFont: {
+                            size: 14
+                        },
+                        bodyFont: {
+                            size: 13
+                        },
                         callbacks: {
                             label: function (context) {
                                 const index = context.dataIndex;
@@ -920,20 +1047,46 @@ function createElectricityChart(history) {
                                 ];
                             }
                         }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            padding: 15,
+                            boxWidth: 12
+                        }
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: false,
+                        min: minValue,
+                        max: maxValue,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
                         title: {
                             display: true,
-                            text: '电量(度)'
+                            text: '电量(度)',
+                            color: '#666',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            }
                         }
                     },
                     x: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
                         title: {
                             display: true,
-                            text: '时间'
+                            text: '查询时间',
+                            color: '#666',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            }
                         }
                     }
                 }
