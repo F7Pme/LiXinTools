@@ -705,69 +705,91 @@ function showRoomHistory(building, room) {
 function createElectricityChart(history) {
     const ctx = document.getElementById('electricityChart').getContext('2d');
 
-    // 如果有旧图表，销毁它
-    if (window.electricityChart) {
-        window.electricityChart.destroy();
+    // 如果有旧图表，销毁它（添加更严格的类型检查）
+    if (window.electricityChart && typeof window.electricityChart === 'object' && typeof window.electricityChart.destroy === 'function') {
+        try {
+            window.electricityChart.destroy();
+        } catch (error) {
+            console.error('销毁旧图表时出错:', error);
+            // 忽略错误，继续创建新图表
+        }
     }
 
-    // 准备数据
-    const labels = history.map(item => {
-        // 简化时间显示，只显示MM-DD HH:MM
-        const date = new Date(item.query_time.replace(/-/g, '/'));
-        return `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-    });
+    // 如果还有问题，尝试清空canvas并重新创建
+    const canvas = document.getElementById('electricityChart');
+    if (canvas) {
+        // 清空当前canvas
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    }
 
-    const data = history.map(item => item.electricity);
+    // 确保Chart.js库已加载
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js库未加载');
+        return;
+    }
 
-    // 创建图表
-    window.electricityChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: '剩余电量(度)',
-                data: data,
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                tension: 0.2,
-                pointRadius: 5,
-                pointHoverRadius: 7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            const index = context.dataIndex;
-                            const record = history[index];
-                            return [
-                                `电量: ${record.electricity.toFixed(2)}度`,
-                                `时间: ${record.query_time}`
-                            ];
+    try {
+        // 准备数据
+        const labels = history.map(item => {
+            // 简化时间显示，只显示MM-DD HH:MM
+            const date = new Date(item.query_time.replace(/-/g, '/'));
+            return `${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        });
+
+        const data = history.map(item => item.electricity);
+
+        // 创建图表
+        window.electricityChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '剩余电量(度)',
+                    data: data,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    tension: 0.2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const index = context.dataIndex;
+                                const record = history[index];
+                                return [
+                                    `电量: ${record.electricity.toFixed(2)}度`,
+                                    `时间: ${record.query_time}`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: '电量(度)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '时间'
                         }
                     }
                 }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false,
-                    title: {
-                        display: true,
-                        text: '电量(度)'
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: '时间'
-                    }
-                }
             }
-        }
-    });
+        });
+    } catch (error) {
+        console.error('创建图表时出错:', error);
+    }
 }
 
 /**
