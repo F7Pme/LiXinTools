@@ -173,9 +173,12 @@ function displayElectricityData(data) {
         // 添加点击整行的样式和交互
         row.style.cursor = 'pointer';
 
+        // 格式化楼栋名称
+        const buildingName = `新苑${item.building}号楼`;
+
         // 显示房间数据
         row.innerHTML = `
-            <td>${item.building}</td>
+            <td>${buildingName}</td>
             <td>${item.room}</td>
             <td>${Number(item.electricity).toFixed(2)}</td>
             <td>${getStatusBadge(item.electricity)}</td>
@@ -237,6 +240,30 @@ function updateOverallStats(data) {
     const warningPercent = (warningCount / totalRooms * 100).toFixed(1);
     const normalPercent = (normalCount / totalRooms * 100).toFixed(1);
 
+    // 确保小百分比的进度条也有最小宽度，便于显示文字
+    const minDisplayWidth = 3; // 最小显示宽度百分比
+    let criticalWidth = parseFloat(criticalPercent);
+    let warningWidth = parseFloat(warningPercent);
+    let normalWidth = parseFloat(normalPercent);
+
+    // 如果某个类别有数据但百分比太小，确保其有一个最小宽度
+    if (criticalCount > 0 && criticalWidth < minDisplayWidth) {
+        criticalWidth = minDisplayWidth;
+        // 从最大的类别中扣除多出来的宽度
+        if (normalWidth > criticalWidth * 2) {
+            normalWidth -= (minDisplayWidth - parseFloat(criticalPercent));
+        } else if (warningWidth > criticalWidth * 2) {
+            warningWidth -= (minDisplayWidth - parseFloat(criticalPercent));
+        }
+    }
+
+    if (warningCount > 0 && warningWidth < minDisplayWidth) {
+        warningWidth = minDisplayWidth;
+        if (normalWidth > warningWidth * 2) {
+            normalWidth -= (minDisplayWidth - parseFloat(warningPercent));
+        }
+    }
+
     document.getElementById('overall-stats').innerHTML = `
         <div class="row mb-2">
             <div class="col-6">
@@ -260,17 +287,17 @@ function updateOverallStats(data) {
         </div>
         
         <div class="progress">
-            <div class="progress-bar bg-success" style="width: ${normalPercent}%" 
+            <div class="progress-bar bg-success" style="width: ${normalWidth}%" 
                 title="正常: ${normalCount}间 (${normalPercent}%)">
-                ${normalCount > 0 ? `${normalCount} (${normalPercent}%)` : ''}
+                ${normalCount} (${normalPercent}%)
             </div>
-            <div class="progress-bar bg-warning" style="width: ${warningPercent}%" 
+            <div class="progress-bar bg-warning" style="width: ${warningWidth}%" 
                 title="警告: ${warningCount}间 (${warningPercent}%)">
-                ${warningCount > 0 ? `${warningCount} (${warningPercent}%)` : ''}
+                ${warningCount} (${warningPercent}%)
             </div>
-            <div class="progress-bar bg-danger" style="width: ${criticalPercent}%" 
+            <div class="progress-bar bg-danger" style="width: ${criticalWidth}%" 
                 title="紧急: ${criticalCount}间 (${criticalPercent}%)">
-                ${criticalCount > 0 ? `${criticalCount} (${criticalPercent}%)` : ''}
+                ${criticalCount} (${criticalPercent}%)
             </div>
         </div>
     `;
@@ -439,11 +466,14 @@ function fetchBuildingStats() {
                     iconClass = "bi-exclamation-fill";
                 }
 
+                // 格式化楼栋名称
+                const buildingName = `新苑${building.building}号楼`;
+
                 return `
                     <div class="building-card">
                         <div class="building-header">
                             <span class="building-title">
-                                <i class="bi bi-building"></i> ${building.building}栋
+                                <i class="bi bi-building"></i> ${buildingName}
                             </span>
                             <span class="building-count">${building.count}间</span>
                         </div>
