@@ -415,3 +415,120 @@ body {
     padding-bottom: 10px;
     border-bottom: 1px solid #dee2e6;
 }
+
+/* 楼栋统计卡片新样式 */
+.building-card {
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 12px;
+    padding: 15px;
+    transition: all 0.3s ease;
+    border-left: 4px solid #0d6efd;
+}
+
+.building-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.building-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.building-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+.building-count {
+    background-color: #0d6efd;
+    color: white;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.building-stats-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.building-stats-row>div {
+    flex: 1;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-bottom: 2px;
+}
+
+.stat-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+.building-progress {
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.building-progress .progress-bar {
+    height: 100%;
+}
+
+/* 历史数据模态框调整 */
+#roomHistoryModal .chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+#roomHistoryModal canvas {
+    max-width: 100%;
+    height: 100%;
+}
+
+#roomHistoryModal .table-responsive {
+    max-height: 300px;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    background-color: #fff;
+}
+
+#roomHistoryModal .sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+#roomHistoryModal thead th {
+    padding: 12px 15px;
+    font-weight: 600;
+    color: #495057;
+}
+
+#roomHistoryModal tbody td {
+    padding: 12px 15px;
+    vertical-align: middle;
+    border-bottom-color: #e9ecef;
+}

@@ -259,33 +259,18 @@ function updateOverallStats(data) {
             </div>
         </div>
         
-        <div class="d-flex justify-content-between mb-2 small">
-            <div>
-                <span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill"></i></span>
-                <span class="ms-1">紧急 (${criticalCount})</span>
-            </div>
-            <div>
-                <span class="badge bg-warning"><i class="bi bi-exclamation-fill"></i></span>
-                <span class="ms-1">警告 (${warningCount})</span>
-            </div>
-            <div>
-                <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i></span>
-                <span class="ms-1">正常 (${normalCount})</span>
-            </div>
-        </div>
-        
         <div class="progress">
-            <div class="progress-bar bg-danger" style="width: ${criticalPercent}%" 
-                title="紧急: ${criticalCount}间 (${criticalPercent}%)">
-                ${criticalCount > 0 ? `${criticalCount} (${criticalPercent}%)` : ''}
+            <div class="progress-bar bg-success" style="width: ${normalPercent}%" 
+                title="正常: ${normalCount}间 (${normalPercent}%)">
+                ${normalCount > 0 ? `${normalCount} (${normalPercent}%)` : ''}
             </div>
             <div class="progress-bar bg-warning" style="width: ${warningPercent}%" 
                 title="警告: ${warningCount}间 (${warningPercent}%)">
                 ${warningCount > 0 ? `${warningCount} (${warningPercent}%)` : ''}
             </div>
-            <div class="progress-bar bg-success" style="width: ${normalPercent}%" 
-                title="正常: ${normalCount}间 (${normalPercent}%)">
-                ${normalCount > 0 ? `${normalCount} (${normalPercent}%)` : ''}
+            <div class="progress-bar bg-danger" style="width: ${criticalPercent}%" 
+                title="紧急: ${criticalCount}间 (${criticalPercent}%)">
+                ${criticalCount > 0 ? `${criticalCount} (${criticalPercent}%)` : ''}
             </div>
         </div>
     `;
@@ -444,55 +429,42 @@ function fetchBuildingStats() {
 
                 // 计算进度条颜色 - 基于平均电量
                 let progressClass = "bg-success";
-                let statusIcon = "bi-lightning-charge-fill";
-                let statusText = "正常";
+                let iconClass = "bi-lightning-charge-fill";
 
                 if (building.average <= 0) {
                     progressClass = "bg-danger";
-                    statusIcon = "bi-exclamation-triangle-fill";
-                    statusText = "紧急";
+                    iconClass = "bi-exclamation-triangle-fill";
                 } else if (building.average <= 10) {
                     progressClass = "bg-warning";
-                    statusIcon = "bi-exclamation-fill";
-                    statusText = "警告";
+                    iconClass = "bi-exclamation-fill";
                 }
 
                 return `
-                    <div class="card mb-3">
-                        <div class="card-body p-3">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h5 class="card-title mb-0">
-                                    <i class="bi bi-building"></i> ${building.building}栋
-                                </h5>
-                                <div>
-                                    <span class="badge bg-primary">${building.count}间</span>
-                                    <span class="badge ${progressClass} ms-1">
-                                        <i class="bi ${statusIcon}"></i> ${statusText}
-                                    </span>
-                                </div>
+                    <div class="building-card">
+                        <div class="building-header">
+                            <span class="building-title">
+                                <i class="bi bi-building"></i> ${building.building}栋
+                            </span>
+                            <span class="building-count">${building.count}间</span>
+                        </div>
+                        <div class="building-stats-row">
+                            <div>
+                                <div class="stat-label">总电量</div>
+                                <div class="stat-value">${building.totalElectricity.toFixed(1)}</div>
                             </div>
-                            
-                            <div class="row text-center mb-3">
-                                <div class="col-4">
-                                    <div class="small text-muted">总电量</div>
-                                    <div class="fw-bold">${building.totalElectricity.toFixed(1)}度</div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="small text-muted">平均</div>
-                                    <div class="fw-bold">${building.average.toFixed(1)}度</div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="small text-muted">范围</div>
-                                    <div class="fw-bold">${building.min.toFixed(1)}~${building.max.toFixed(1)}</div>
-                                </div>
+                            <div>
+                                <div class="stat-label">平均</div>
+                                <div class="stat-value">${building.average.toFixed(1)}</div>
                             </div>
-                            
-                            <div class="progress">
-                                <div class="progress-bar ${progressClass}" 
-                                     style="width: ${electricityPercentage}%" 
-                                     title="总电量: ${building.totalElectricity.toFixed(1)}度">
+                            <div>
+                                <div class="stat-label">
+                                    <i class="bi ${iconClass} ${progressClass === 'bg-danger' ? 'text-danger' : (progressClass === 'bg-warning' ? 'text-warning' : 'text-success')}"></i>
                                 </div>
+                                <div class="stat-value">${building.min.toFixed(1)}~${building.max.toFixed(1)}</div>
                             </div>
+                        </div>
+                        <div class="building-progress">
+                            <div class="progress-bar ${progressClass}" style="width:${electricityPercentage}%"></div>
                         </div>
                     </div>
                 `;
