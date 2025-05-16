@@ -32,6 +32,12 @@ function initialize() {
 
     // 添加事件监听器
     attachEventListeners();
+
+    // 设置默认排序为房间号
+    window.currentSort = {
+        field: 'room',
+        direction: 'asc'
+    };
 }
 
 /**
@@ -149,50 +155,54 @@ function displayElectricityData(data) {
         return;
     }
 
+    // 如果有设置默认排序，应用排序
+    if (window.currentSort) {
+        data = sortRoomData(data, window.currentSort.field, window.currentSort.direction);
+    }
+
     data.forEach(item => {
         const row = document.createElement('tr');
 
         // 为低电量行添加警告样式
-        if (item.electricity < 10) {
+        if (item.electricity <= 0) {
             row.classList.add('table-danger');
-        } else if (item.electricity < 30) {
+        } else if (item.electricity <= 10) {
             row.classList.add('table-warning');
         }
 
-        // 在房间单元格添加点击事件
+        // 添加点击整行的样式和交互
+        row.style.cursor = 'pointer';
+
+        // 显示房间数据
         row.innerHTML = `
             <td>${item.building}</td>
-            <td><a href="#" class="room-link" data-building="${item.building}" data-room="${item.room}">${item.room}</a></td>
+            <td>${item.room}</td>
             <td>${Number(item.electricity).toFixed(2)}</td>
             <td>${getStatusBadge(item.electricity)}</td>
         `;
 
+        // 为整行添加点击事件
+        row.addEventListener('click', function () {
+            showRoomHistory(item.building, item.room);
+        });
+
         tableBody.appendChild(row);
     });
 
-    // 为房间链接添加点击事件
-    document.querySelectorAll('.room-link').forEach(link => {
-        link.addEventListener('click', function (e) {
-            e.preventDefault();
-            const building = this.getAttribute('data-building');
-            const room = this.getAttribute('data-room');
-            showRoomHistory(building, room);
-        });
-    });
+    // 更新表头排序图标
+    updateSortHeaderStyles();
 }
 
 /**
  * 获取状态徽章
  */
 function getStatusBadge(electricity) {
-    if (electricity < 10) {
+    if (electricity <= 0) {
         return '<span class="badge bg-danger">紧急</span>';
-    } else if (electricity < 30) {
+    } else if (electricity <= 10) {
         return '<span class="badge bg-warning text-dark">警告</span>';
-    } else if (electricity < 60) {
-        return '<span class="badge bg-info text-dark">正常</span>';
     } else {
-        return '<span class="badge bg-success">充足</span>';
+        return '<span class="badge bg-success">正常</span>';
     }
 }
 
@@ -204,8 +214,8 @@ function updateOverallStats(data) {
         document.getElementById('overall-stats').innerHTML = `
             <div class="alert alert-info mb-0">
                 <i class="bi bi-info-circle"></i> 暂无统计数据
-                    </div>
-                `;
+            </div>
+        `;
         return;
     }
 
@@ -218,47 +228,44 @@ function updateOverallStats(data) {
     const maxElectricity = Math.max(...electricityValues);
 
     // 计算不同状态的房间数量
-    const criticalCount = data.filter(item => item.electricity < 10).length;
-    const warningCount = data.filter(item => item.electricity >= 10 && item.electricity < 30).length;
-    const normalCount = data.filter(item => item.electricity >= 30 && item.electricity < 60).length;
-    const goodCount = data.filter(item => item.electricity >= 60).length;
+    const criticalCount = data.filter(item => item.electricity <= 0).length;
+    const warningCount = data.filter(item => item.electricity > 0 && item.electricity <= 10).length;
+    const normalCount = data.filter(item => item.electricity > 10).length;
 
     document.getElementById('overall-stats').innerHTML = `
         <div class="row mb-2">
-                    <div class="col-6">
+            <div class="col-6">
                 <div class="text-muted small">总房间数</div>
                 <div class="fs-5">${totalRooms}</div>
-                    </div>
-                    <div class="col-6">
+            </div>
+            <div class="col-6">
                 <div class="text-muted small">平均电量</div>
                 <div class="fs-5">${avgElectricity.toFixed(2)} 度</div>
-                        </div>
-                    </div>
+            </div>
+        </div>
         <div class="row mb-3">
-                    <div class="col-6">
+            <div class="col-6">
                 <div class="text-muted small">最低电量</div>
                 <div class="fs-5">${minElectricity.toFixed(2)} 度</div>
-                    </div>
-                    <div class="col-6">
+            </div>
+            <div class="col-6">
                 <div class="text-muted small">最高电量</div>
                 <div class="fs-5">${maxElectricity.toFixed(2)} 度</div>
-                        </div>
-                    </div>
+            </div>
+        </div>
         
         <div class="text-muted small mb-2">电量状态分布</div>
         <div class="d-flex justify-content-between mb-1 small">
-            <span>紧急 (${criticalCount})</span>
-            <span>警告 (${warningCount})</span>
-            <span>正常 (${normalCount})</span>
-            <span>充足 (${goodCount})</span>
-                </div>
-        <div class="progress" style="height: 20px;">
-            <div class="progress-bar bg-danger" style="width: ${(criticalCount / totalRooms * 100)}%">${criticalCount}</div>
-            <div class="progress-bar bg-warning" style="width: ${(warningCount / totalRooms * 100)}%">${warningCount}</div>
-            <div class="progress-bar bg-info" style="width: ${(normalCount / totalRooms * 100)}%">${normalCount}</div>
-            <div class="progress-bar bg-success" style="width: ${(goodCount / totalRooms * 100)}%">${goodCount}</div>
-                </div>
-            `;
+            <span class="text-danger">紧急 (${criticalCount})</span>
+            <span class="text-warning">警告 (${warningCount})</span>
+            <span class="text-success">正常 (${normalCount})</span>
+        </div>
+        <div class="progress mb-3" style="height: 24px; border-radius: 12px; overflow: hidden;">
+            <div class="progress-bar bg-danger" style="width: ${(criticalCount / totalRooms * 100)}%" title="紧急: ${criticalCount}间">${criticalCount > 0 ? criticalCount : ''}</div>
+            <div class="progress-bar bg-warning" style="width: ${(warningCount / totalRooms * 100)}%" title="警告: ${warningCount}间">${warningCount > 0 ? warningCount : ''}</div>
+            <div class="progress-bar bg-success" style="width: ${(normalCount / totalRooms * 100)}%" title="正常: ${normalCount}间">${normalCount > 0 ? normalCount : ''}</div>
+        </div>
+    `;
 }
 
 /**
@@ -387,24 +394,62 @@ function fetchBuildingStats() {
                 return;
             }
 
-            const buildingCards = data.building_stats.map(building => `
-                <div class="card mb-2">
-                    <div class="card-body p-2">
-                        <div class="d-flex justify-content-between">
-                            <h6 class="card-title mb-1">${building.building}栋</h6>
-                            <span class="badge bg-primary">${building.count}间</span>
-                        </div>
-                        <div class="progress mt-2" style="height: 5px;">
-                            <div class="progress-bar" style="width: ${Math.min(100, building.average / building.max * 100)}%"></div>
-                        </div>
-                        <div class="d-flex justify-content-between mt-1 small text-muted">
-                            <span>最低: ${building.min.toFixed(1)}</span>
-                            <span>平均: ${building.average.toFixed(1)}</span>
-                            <span>最高: ${building.max.toFixed(1)}</span>
+            // 计算所有楼栋的总电量用于比较
+            let totalElectricityAll = 0;
+            let maxTotalElectricity = 0;
+
+            data.building_stats.forEach(building => {
+                // 计算该楼栋的总电量 (平均电量 × 房间数)
+                const buildingTotalElectricity = building.average * building.count;
+                totalElectricityAll += buildingTotalElectricity;
+
+                // 记录最大的楼栋总电量，用于进度条比例
+                if (buildingTotalElectricity > maxTotalElectricity) {
+                    maxTotalElectricity = buildingTotalElectricity;
+                }
+
+                // 将总电量添加到对象中
+                building.totalElectricity = buildingTotalElectricity;
+            });
+
+            // 根据总电量排序（从高到低）
+            data.building_stats.sort((a, b) => b.totalElectricity - a.totalElectricity);
+
+            const buildingCards = data.building_stats.map(building => {
+                // 计算该楼栋电量占所有楼栋最大电量的百分比，用于进度条
+                const electricityPercentage = (building.totalElectricity / maxTotalElectricity * 100);
+
+                // 计算进度条颜色 - 基于平均电量
+                let progressClass = "bg-success";
+                if (building.average <= 0) {
+                    progressClass = "bg-danger";
+                } else if (building.average <= 10) {
+                    progressClass = "bg-warning";
+                }
+
+                return `
+                    <div class="card mb-2">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between">
+                                <h6 class="card-title mb-1">${building.building}栋</h6>
+                                <span class="badge bg-primary">${building.count}间</span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1 small text-muted">
+                                <span>总电量: ${building.totalElectricity.toFixed(1)}度</span>
+                                <span>平均: ${building.average.toFixed(1)}度</span>
+                            </div>
+                            <div class="progress mt-2" style="height: 8px; border-radius: 4px;">
+                                <div class="progress-bar ${progressClass}" style="width: ${electricityPercentage}%" 
+                                     title="总电量: ${building.totalElectricity.toFixed(1)}度"></div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1 small text-muted">
+                                <span>最低: ${building.min.toFixed(1)}</span>
+                                <span>最高: ${building.max.toFixed(1)}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             document.getElementById('building-stats').innerHTML = buildingCards;
         })
@@ -548,18 +593,16 @@ function searchRooms() {
  * 排序表格
  */
 function sortTable(field) {
-    const tbody = document.getElementById('room-data');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-
-    // 如果没有有效行，直接返回
-    if (rows.length <= 1) {
-        return;
-    }
-
-    // 查找当前排序状态
+    // 获取当前排序方向
     const header = document.querySelector(`.sortable[data-field="${field}"]`);
     const currentDirection = header.getAttribute('data-direction') || 'asc';
     const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+
+    // 存储当前排序状态
+    window.currentSort = {
+        field: field,
+        direction: newDirection
+    };
 
     // 重置所有表头的排序状态
     document.querySelectorAll('.sortable').forEach(h => {
@@ -571,47 +614,156 @@ function sortTable(field) {
     header.setAttribute('data-direction', newDirection);
     header.querySelector('i').className = newDirection === 'asc' ? 'bi bi-arrow-down' : 'bi bi-arrow-up';
 
-    // 排序行
-    rows.sort((a, b) => {
-        // 确保是有效的行
-        if (!a.cells || !b.cells) {
-            return 0;
-        }
+    // 获取数据并排序
+    const tableBody = document.getElementById('room-data');
+    const rows = Array.from(tableBody.querySelectorAll('tr'));
 
-        let valueA, valueB;
+    // 处理没有数据的情况
+    if (rows.length <= 1 && rows[0]?.cells?.length !== 4) {
+        return;
+    }
 
-        switch (field) {
-            case 'building':
-                valueA = a.cells[0].textContent;
-                valueB = b.cells[0].textContent;
-                break;
-            case 'room':
-                valueA = a.cells[1].textContent;
-                valueB = b.cells[1].textContent;
-                break;
-            case 'electricity':
-                valueA = parseFloat(a.cells[2].textContent);
-                valueB = parseFloat(b.cells[2].textContent);
-                break;
-            case 'status':
-                valueA = a.cells[3].textContent;
-                valueB = b.cells[3].textContent;
-                break;
-            default:
-                return 0;
-        }
-
-        if (field === 'electricity') {
-            return newDirection === 'asc' ? valueA - valueB : valueB - valueA;
-        } else {
-            const comparison = valueA.localeCompare(valueB);
-            return newDirection === 'asc' ? comparison : -comparison;
+    // 从行中提取数据
+    const data = [];
+    rows.forEach(row => {
+        if (row.cells.length === 4) {
+            data.push({
+                building: row.cells[0].textContent,
+                room: row.cells[1].textContent,
+                electricity: parseFloat(row.cells[2].textContent),
+                status: row.cells[3].textContent
+            });
         }
     });
 
-    // 重新添加排序后的行
-    tbody.innerHTML = '';
-    rows.forEach(row => tbody.appendChild(row));
+    // 排序数据
+    const sortedData = sortRoomData(data, field, newDirection);
+
+    // 重新显示排序后的数据
+    displayElectricityData(sortedData);
+}
+
+/**
+ * 排序房间数据
+ */
+function sortRoomData(data, field, direction) {
+    return [...data].sort((a, b) => {
+        let result = 0;
+
+        switch (field) {
+            case 'building':
+                // 按楼栋排序 - 直接比较数字
+                result = parseInt(a.building) - parseInt(b.building);
+                break;
+
+            case 'room':
+                // 按房间号排序 - 特殊处理逻辑
+                const roomA = parseRoomNumber(a.room);
+                const roomB = parseRoomNumber(b.room);
+                result = compareRoomNumbers(roomA, roomB);
+                break;
+
+            case 'electricity':
+                // 按电量排序
+                result = a.electricity - b.electricity;
+                break;
+
+            case 'status':
+                // 按状态排序 - 根据电量判断状态优先级
+                const priorityA = getStatusPriority(a.electricity);
+                const priorityB = getStatusPriority(b.electricity);
+                result = priorityA - priorityB;
+                break;
+
+            default:
+                // 默认不排序
+                return 0;
+        }
+
+        // 应用排序方向
+        return direction === 'asc' ? result : -result;
+    });
+}
+
+/**
+ * 解析房间号
+ */
+function parseRoomNumber(roomStr) {
+    // 处理形式为 "1-1001" 的房间号，其中1是楼栋，1001表示10楼01房间
+    const parts = roomStr.split('-');
+
+    if (parts.length > 1) {
+        const roomNumber = parts[1];
+        // 对于4位数的房间号，第1-2位是楼层，后2位是房间号
+        if (roomNumber.length === 4) {
+            return {
+                floor: parseInt(roomNumber.substring(0, 2)),
+                room: parseInt(roomNumber.substring(2))
+            };
+        }
+    }
+
+    // 如果不是标准格式，尝试提取数字部分
+    const matches = roomStr.match(/(\d+)/g);
+    if (matches && matches.length > 0) {
+        const roomNum = parseInt(matches[matches.length - 1]);
+        if (roomNum > 100) {
+            return {
+                floor: Math.floor(roomNum / 100),
+                room: roomNum % 100
+            };
+        }
+        return { floor: 0, room: roomNum };
+    }
+
+    // 无法解析时返回默认值
+    return { floor: 0, room: 0 };
+}
+
+/**
+ * 比较两个房间号
+ */
+function compareRoomNumbers(roomA, roomB) {
+    // 首先比较楼层
+    if (roomA.floor !== roomB.floor) {
+        return roomA.floor - roomB.floor;
+    }
+
+    // 楼层相同则比较房间号
+    return roomA.room - roomB.room;
+}
+
+/**
+ * 获取状态优先级
+ */
+function getStatusPriority(electricity) {
+    if (electricity <= 0) return 1; // 紧急 - 最高优先级
+    if (electricity <= 10) return 2; // 警告
+    return 3; // 正常
+}
+
+/**
+ * 更新表头排序样式
+ */
+function updateSortHeaderStyles() {
+    if (!window.currentSort) return;
+
+    const headers = document.querySelectorAll('.sortable');
+
+    headers.forEach(header => {
+        const field = header.getAttribute('data-field');
+
+        // 重置所有表头样式
+        header.setAttribute('data-direction', '');
+        header.querySelector('i').className = 'bi bi-arrow-down-up';
+
+        // 设置当前排序表头的样式
+        if (field === window.currentSort.field) {
+            header.setAttribute('data-direction', window.currentSort.direction);
+            header.querySelector('i').className =
+                window.currentSort.direction === 'asc' ? 'bi bi-arrow-down' : 'bi bi-arrow-up';
+        }
+    });
 }
 
 /**
