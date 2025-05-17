@@ -977,6 +977,22 @@ function createElectricityChart(history, buildingName, room) {
                         display: true,
                         position: 'top',
                         labels: { padding: 15, boxWidth: 12 }
+                    },
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'x',
+                            modifierKey: 'ctrl', // 按住ctrl拖动
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true,
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            mode: 'x',
+                        }
                     }
                 },
                 scales: {
@@ -1007,6 +1023,16 @@ function createElectricityChart(history, buildingName, room) {
     } catch (error) {
         console.error('创建图表时出错:', error);
     }
+}
+
+// 重置缩放按钮功能
+const resetZoomBtn = document.getElementById('reset-zoom-btn');
+if (resetZoomBtn) {
+    resetZoomBtn.onclick = function () {
+        if (window.electricityChart && window.electricityChart.resetZoom) {
+            window.electricityChart.resetZoom();
+        }
+    };
 }
 
 /**
