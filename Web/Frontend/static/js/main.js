@@ -213,8 +213,8 @@ function updateOverallStats(data) {
         document.getElementById('overall-stats').innerHTML = `
             <div class="alert alert-info mb-0">
                 <i class="bi bi-info-circle"></i> 暂无统计数据
-            </div>
-        `;
+                </div>
+            `;
         return;
     }
 
@@ -258,37 +258,37 @@ function updateOverallStats(data) {
             <div class="col-6">
                 <div class="text-muted small">总房间数</div>
                 <div class="fs-5">${totalRooms}</div>
-            </div>
-            <div class="col-6">
+                        </div>
+                    <div class="col-6">
                 <div class="text-muted small">平均电量</div>
                 <div class="fs-5">${avgElectricity.toFixed(2)} 度</div>
-            </div>
-        </div>
+                        </div>
+                    </div>
         <div class="row mb-3">
-            <div class="col-6">
+                    <div class="col-6">
                 <div class="text-muted small">最低电量</div>
                 <div class="fs-5">${minElectricity.toFixed(2)} 度</div>
-            </div>
-            <div class="col-6">
+                        </div>
+                    <div class="col-6">
                 <div class="text-muted small">最高电量</div>
                 <div class="fs-5">${maxElectricity.toFixed(2)} 度</div>
-            </div>
-        </div>
+                        </div>
+                    </div>
         <div class="progress my-4">
             <div class="progress-bar bg-success" style="width: ${normalWidth}%" 
                 title="正常: ${normalCount}间 (${normalPercent}%)">
                 ${normalCount} (${normalPercent}%)
-            </div>
+                        </div>
             <div class="progress-bar bg-warning" style="width: ${warningWidth}%" 
                 title="警告: ${warningCount}间">
                 ${warningCount}
-            </div>
+                    </div>
             <div class="progress-bar bg-danger" style="width: ${criticalWidth}%" 
                 title="紧急: ${criticalCount}间">
                 ${criticalCount}
-            </div>
-        </div>
-    `;
+                </div>
+                </div>
+            `;
 }
 
 /**
