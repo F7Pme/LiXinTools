@@ -77,6 +77,17 @@
             margin-bottom: 32px;
         }
 
+        @media (max-width: 600px) {
+            .main-row {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+
+        .btn-main {
+            margin-left: 0 !important;
+        }
+
         .btn-main {
             padding: 16px 48px;
             font-size: 1.25rem;
@@ -115,9 +126,9 @@
             <div class="mb-4">
                 <i class="bi bi-lightning-charge-fill" style="font-size:2.5rem;color:#0078ff;"></i>
             </div>
-            <div class="main-row">
-                <div class="main-title">立信校园工具</div>
-                <a href="https://electricity.lixinez.icu" class="btn btn-main mb-2 ms-3"><i
+            <div class="main-row flex-column flex-md-row justify-content-center align-items-center">
+                <div class="main-title mb-2 mb-md-0">立信校园工具</div>
+                <a href="https://electricity.lixinez.icu" class="btn btn-main mb-2"><i
                         class="bi bi-battery-charging me-2"></i>进入电量查询系统</a>
             </div>
             <div class="sub-title">
