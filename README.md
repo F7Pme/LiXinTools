@@ -117,6 +117,9 @@ build_exe.bat
     - `js/`：主前端逻辑（如main.js）
     - `pic/`：图片/图标
     - `lib/`：本地化第三方库（bootstrap、chart.js、nouislider等）
+  - `main_site/`：主站静态主页目录
+    - `index.html`：lixinez.icu主页，现代美观
+- `scripts/`: 脚本目录
 
 ## 开发者模式
 
@@ -138,8 +141,10 @@ build_exe.bat
 ├── Web/
 │   ├── Backend/                # Flask后端
 │   ├── Frontend/               # 前端页面与静态资源
-│   │   ├── index.html
-│   │   └── static/
+│   │   ├── index.html          # 电量查询系统主页面（Flask模板）
+│   │   ├── main_site/          # lixinez.icu主站静态主页
+│   │   │   └── index.html      # 主页HTML，现代美观，居中内容
+│   │   └── static/             # 静态资源
 │   │       ├── css/
 │   │       ├── js/
 │   │       ├── pic/
@@ -147,7 +152,7 @@ build_exe.bat
 │   └── scripts/
 ├── venv/
 ```
-- Nginx配置：`/static` 由 Nginx 直接 alias 到 `Web/Frontend/static`，其它请求反代到 Flask。
+- Nginx配置：`/static` 由 Nginx 直接 alias 到 `Web/Frontend/static`，`/` 访问主站主页 `Web/Frontend/main_site/index.html`，`electricity.lixinez.icu` 反代到 Flask。
 - Flask后端：`template_folder='../Frontend'`，`static_folder='../Frontend/static'`，模板和静态资源均指向前端目录。
 
 ### 核心服务
