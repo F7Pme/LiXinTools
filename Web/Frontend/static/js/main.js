@@ -168,7 +168,7 @@ function displayElectricityData(data) {
             row.classList.add('table-warning');
         }
         row.style.cursor = 'pointer';
-        // 只在building为纯数字时添加“新苑x号楼”，否则直接显示原building
+        // 只在building为纯数字时添加"新苑x号楼"，否则直接显示原building
         let buildingName = item.building;
         if (/^\d+$/.test(item.building)) {
             buildingName = `新苑${item.building}号楼`;
@@ -681,45 +681,36 @@ function sortTable(field) {
 function sortRoomData(data, field, direction) {
     return [...data].sort((a, b) => {
         let result = 0;
-
         switch (field) {
             case 'building':
-                // 按楼栋排序 - 直接比较数字
-                result = parseInt(a.building) - parseInt(b.building);
+                // 楼栋排序：提取数字部分进行比较
+                const numA = /^\d+$/.test(a.building) ? parseInt(a.building) : parseInt(a.building.replace(/[^\d]/g, ''));
+                const numB = /^\d+$/.test(b.building) ? parseInt(b.building) : parseInt(b.building.replace(/[^\d]/g, ''));
+                result = (isNaN(numA) ? 0 : numA) - (isNaN(numB) ? 0 : numB);
                 break;
-
             case 'room':
-                // 按房间号排序 - 特殊处理逻辑
                 const roomA = parseRoomNumber(a.room);
                 const roomB = parseRoomNumber(b.room);
-
-                // 首先比较了楼栋
                 if (a.building !== b.building) {
-                    result = parseInt(a.building) - parseInt(b.building);
+                    // 依然用数字部分比较楼栋
+                    const nA = /^\d+$/.test(a.building) ? parseInt(a.building) : parseInt(a.building.replace(/[^\d]/g, ''));
+                    const nB = /^\d+$/.test(b.building) ? parseInt(b.building) : parseInt(b.building.replace(/[^\d]/g, ''));
+                    result = (isNaN(nA) ? 0 : nA) - (isNaN(nB) ? 0 : nB);
                 } else {
-                    // 楼栋相同，使用compareRoomNumbers比较
                     result = compareRoomNumbers(roomA, roomB);
                 }
                 break;
-
             case 'electricity':
-                // 按电量排序
                 result = a.electricity - b.electricity;
                 break;
-
             case 'status':
-                // 按状态排序 - 根据电量判断状态优先级
                 const priorityA = getStatusPriority(a.electricity);
                 const priorityB = getStatusPriority(b.electricity);
                 result = priorityA - priorityB;
                 break;
-
             default:
-                // 默认不排序
                 return 0;
         }
-
-        // 应用排序方向
         return direction === 'asc' ? result : -result;
     });
 }
@@ -835,8 +826,11 @@ function showRoomHistory(building, room) {
     document.getElementById('room-history-loading').style.display = 'block';
     document.getElementById('room-history-content').style.display = 'none';
     document.getElementById('room-history-error').style.display = 'none';
-    // 楼栋名格式
-    const buildingName = `新苑${building}号楼`;
+    // 只在building为纯数字时加"新苑x号楼"
+    let buildingName = building;
+    if (/^\d+$/.test(building)) {
+        buildingName = `新苑${building}号楼`;
+    }
     document.getElementById('room-history-title').textContent = `${buildingName} - ${room}`;
     fetch(`/api/room_history/${building}/${room}`)
         .then(response => response.json())
@@ -873,7 +867,6 @@ function showRoomHistory(building, room) {
             }
             sortedHistory[0].consumed = '0.00';
             sortedHistory[0].change = 'same';
-            // 表格数据，时间格式YYYY-MM-DD HH:mm:ss
             const tableHtml = sortedHistory.reverse().map(record => {
                 let changeIcon = '';
                 let changeStyle = '';
