@@ -199,6 +199,27 @@ git push jdcloud main                         # 推送更新到服务器
 # 文件传输
 scp -r local_file.py root@117.72.194.27:/var/www/LiXinTools/  # 上传文件
 scp -r root@117.72.194.27:/var/www/LiXinTools/Web ./          # 下载文件
+
+# 其它常用命令
+
+# 查看Nginx配置
+cat /etc/nginx/nginx.conf
+cat /etc/nginx/sites-enabled/*
+
+# 查看Redis配置
+cat /etc/redis/redis.conf
+
+# 查看/opt/LiXinTools/目录内容
+ls -la /opt/LiXinTools/
+
+# 查看/var/www/LiXinTools/目录内容(这是实际的工作目录)
+ls -la /var/www/LiXinTools/
+
+# 查看工作目录下的主要文件和目录
+find /var/www/LiXinTools -type d -maxdepth 2 | sort
+
+# 查看Web应用目录结构
+find /var/www/LiXinTools/Web -type f -name "*.py" | sort
 ```
 
 ### 故障处理
