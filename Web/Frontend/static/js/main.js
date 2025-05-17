@@ -1012,7 +1012,7 @@ function renderElectricityChart(history, buildingName, room) {
                     pointBorderColor: 'rgba(220,53,69,1)',
                     pointBorderWidth: 2,
                     spanGaps: true,
-                    yAxisID: 'y',
+                    yAxisID: 'y2', // 切换为右侧Y轴
                     hidden: false
                 }
             ]
@@ -1059,6 +1059,20 @@ function renderElectricityChart(history, buildingName, room) {
                         text: '电量(度)',
                         color: '#666',
                         font: { size: 12, weight: 'bold' }
+                    }
+                },
+                y2: {
+                    position: 'right',
+                    beginAtZero: true,
+                    grid: { drawOnChartArea: false }, // 不与主Y轴重叠
+                    title: {
+                        display: true,
+                        text: '消耗电量(度)',
+                        color: 'rgba(220,53,69,1)',
+                        font: { size: 12, weight: 'bold' }
+                    },
+                    ticks: {
+                        color: 'rgba(220,53,69,1)'
                     }
                 },
                 x: {
