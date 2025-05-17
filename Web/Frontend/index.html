@@ -5,9 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>电量查询系统</title>
-    <!-- 使用本地资源 -->
-    <link rel="icon" href="{{ url_for('static', filename='pic/app_icon.ico') }}?v=1005" type="image/x-icon">
-    <link rel="shortcut icon" href="{{ url_for('static', filename='pic/app_icon.ico') }}?v=1005" type="image/x-icon">
+    <!-- 使用在线图标替代本地图标 -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"
+        type="image/svg+xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap/css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons/font/bootstrap-icons.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1005">
