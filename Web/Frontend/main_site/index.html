@@ -51,8 +51,21 @@
         .nowrap-link {
             display: inline-block;
             white-space: nowrap;
-            overflow-x: auto;
             max-width: 100%;
+            font-size: 1.05rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        @media (max-width: 600px) {
+            .nowrap-link {
+                font-size: 0.85rem;
+            }
+        }
+
+        .nowrap-link {
+            -webkit-text-size-adjust: none;
+            text-size-adjust: none;
         }
 
         .main-row {
