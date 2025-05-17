@@ -912,127 +912,106 @@ function formatQueryTimeFull(timeString) {
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
+// 历史图表滑动条联动
+let fullHistoryData = [];
 function createElectricityChart(history, buildingName, room) {
+    fullHistoryData = history;
+    // 默认显示全部数据
+    renderElectricityChart(history, buildingName, room);
+    // 显示滑动条
+    const sliderContainer = document.getElementById('history-slider-container');
+    const slider = document.getElementById('history-slider');
+    if (sliderContainer && slider) {
+        sliderContainer.style.display = history.length > 10 ? '' : 'none';
+        slider.max = history.length;
+        slider.value = history.length;
+        slider.oninput = function () {
+            const count = parseInt(this.value);
+            const sliced = fullHistoryData.slice(-count);
+            renderElectricityChart(sliced, buildingName, room);
+        };
+    }
+}
+function renderElectricityChart(history, buildingName, room) {
     const ctx = document.getElementById('electricityChart').getContext('2d');
     if (window.electricityChart && typeof window.electricityChart === 'object' && typeof window.electricityChart.destroy === 'function') {
-        try {
-            window.electricityChart.destroy();
-        } catch (error) {
-            console.error('销毁旧图表时出错:', error);
-        }
+        try { window.electricityChart.destroy(); } catch (error) { }
     }
-    const canvas = document.getElementById('electricityChart');
-    if (canvas) {
-        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-    }
-    if (typeof Chart === 'undefined') {
-        console.error('Chart.js库未加载');
-        return;
-    }
-    try {
-        const labels = history.map(item => formatQueryTimeFull(item.query_time));
-        const data = history.map(item => item.electricity);
-        let minValue = Math.min(...data) * 0.9;
-        minValue = Math.max(0, minValue);
-        const maxValue = Math.max(...data) * 1.1;
-        window.electricityChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: `${buildingName}-${room} 剩余电量(度)`,
-                    data: data,
-                    backgroundColor: 'rgba(13, 110, 253, 0.15)',
-                    borderColor: 'rgba(13, 110, 253, 1)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: 'rgba(255, 140, 0, 1)', // 橙色点
-                    pointBorderColor: 'rgba(13, 110, 253, 1)',
-                    pointBorderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 10,
-                        titleFont: { size: 14 },
-                        bodyFont: { size: 13 },
-                        callbacks: {
-                            label: function (context) {
-                                const index = context.dataIndex;
-                                const record = history[index];
-                                return [
-                                    `电量: ${record.electricity.toFixed(2)}度`,
-                                    `时间: ${formatQueryTimeFull(record.query_time)}`
-                                ];
-                            }
-                        }
-                    },
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: { padding: 15, boxWidth: 12 }
-                    },
-                    zoom: {
-                        pan: {
-                            enabled: true,
-                            mode: 'x',
-                            modifierKey: 'ctrl', // 按住ctrl拖动
-                        },
-                        zoom: {
-                            wheel: {
-                                enabled: true,
-                            },
-                            pinch: {
-                                enabled: true
-                            },
-                            mode: 'x',
+    if (!history || history.length === 0) return;
+    const labels = history.map(item => formatQueryTimeFull(item.query_time));
+    const data = history.map(item => item.electricity);
+    let minValue = Math.min(...data) * 0.9;
+    minValue = Math.max(0, minValue);
+    const maxValue = Math.max(...data) * 1.1;
+    window.electricityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `${buildingName}-${room} 剩余电量(度)`,
+                data: data,
+                backgroundColor: 'rgba(13, 110, 253, 0.15)',
+                borderColor: 'rgba(13, 110, 253, 1)',
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: 'rgba(255, 140, 0, 1)',
+                pointBorderColor: 'rgba(13, 110, 253, 1)',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 10,
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        label: function (context) {
+                            const index = context.dataIndex;
+                            const record = history[index];
+                            return [
+                                `电量: ${record.electricity.toFixed(2)}度`,
+                                `时间: ${formatQueryTimeFull(record.query_time)}`
+                            ];
                         }
                     }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        min: minValue,
-                        max: maxValue,
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                        title: {
-                            display: true,
-                            text: '电量(度)',
-                            color: '#666',
-                            font: { size: 12, weight: 'bold' }
-                        }
-                    },
-                    x: {
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                        title: {
-                            display: true,
-                            text: '查询时间',
-                            color: '#666',
-                            font: { size: 12, weight: 'bold' }
-                        }
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: { padding: 15, boxWidth: 12 }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: minValue,
+                    max: maxValue,
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    title: {
+                        display: true,
+                        text: '电量(度)',
+                        color: '#666',
+                        font: { size: 12, weight: 'bold' }
+                    }
+                },
+                x: {
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    title: {
+                        display: true,
+                        text: '查询时间',
+                        color: '#666',
+                        font: { size: 12, weight: 'bold' }
                     }
                 }
             }
-        });
-    } catch (error) {
-        console.error('创建图表时出错:', error);
-    }
-}
-
-// 重置缩放按钮功能
-const resetZoomBtn = document.getElementById('reset-zoom-btn');
-if (resetZoomBtn) {
-    resetZoomBtn.onclick = function () {
-        if (window.electricityChart && window.electricityChart.resetZoom) {
-            window.electricityChart.resetZoom();
         }
-    };
+    });
 }
 
 /**
