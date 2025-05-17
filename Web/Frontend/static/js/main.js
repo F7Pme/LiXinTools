@@ -155,27 +155,29 @@ function displayElectricityData(data) {
         return;
     }
 
-    // 如果有设置默认排序，应用排序
+    // 给每个数据项补充rawBuilding字段（只要是数字就用数字，否则尝试提取数字，否则用原值）
+    data = data.map(item => {
+        let rawBuilding = item.building;
+        if (typeof rawBuilding === 'string' && !/^\d+$/.test(rawBuilding)) {
+            const match = rawBuilding.match(/(\d+)/);
+            if (match) rawBuilding = match[1];
+        }
+        return { ...item, rawBuilding };
+    });
+
     if (window.currentSort) {
         data = sortRoomData(data, window.currentSort.field, window.currentSort.direction);
     }
 
     data.forEach(item => {
         const row = document.createElement('tr');
-        if (item.electricity <= 0) {
-            row.classList.add('table-danger');
-        } else if (item.electricity <= 10) {
-            row.classList.add('table-warning');
-        }
+        if (item.electricity <= 0) row.classList.add('table-danger');
+        else if (item.electricity <= 10) row.classList.add('table-warning');
         row.style.cursor = 'pointer';
-        // 只在building为纯数字时添加"新苑x号楼"，否则直接显示原building
         let buildingName = item.building;
-        if (/^\d+$/.test(item.building)) {
-            buildingName = `新苑${item.building}号楼`;
-        }
-        // 保证原始building和room始终可用
-        row.dataset.rawBuilding = item.rawBuilding !== undefined ? item.rawBuilding : item.building;
-        row.dataset.rawRoom = item.rawRoom !== undefined ? item.rawRoom : item.room;
+        if (/^\d+$/.test(item.building)) buildingName = `新苑${item.building}号楼`;
+        row.dataset.rawBuilding = item.rawBuilding;
+        row.dataset.rawRoom = item.room;
         row.innerHTML = `
             <td>${buildingName}</td>
             <td>${item.room}</td>
@@ -183,9 +185,7 @@ function displayElectricityData(data) {
             <td>${getStatusBadge(item.electricity)}</td>
         `;
         row.addEventListener('click', function () {
-            const rawBuilding = this.dataset.rawBuilding;
-            const rawRoom = this.dataset.rawRoom;
-            showRoomHistory(rawBuilding, rawRoom);
+            showRoomHistory(this.dataset.rawBuilding, this.dataset.rawRoom);
         });
         tableBody.appendChild(row);
     });
@@ -688,18 +688,17 @@ function sortRoomData(data, field, direction) {
         let result = 0;
         switch (field) {
             case 'building':
-                // 楼栋排序：提取数字部分进行比较
-                const numA = /^\d+$/.test(a.building) ? parseInt(a.building) : parseInt(a.building.replace(/[^\d]/g, ''));
-                const numB = /^\d+$/.test(b.building) ? parseInt(b.building) : parseInt(b.building.replace(/[^\d]/g, ''));
+                // 用rawBuilding字段进行比较
+                const numA = parseInt(a.rawBuilding);
+                const numB = parseInt(b.rawBuilding);
                 result = (isNaN(numA) ? 0 : numA) - (isNaN(numB) ? 0 : numB);
                 break;
             case 'room':
                 const roomA = parseRoomNumber(a.room);
                 const roomB = parseRoomNumber(b.room);
-                if (a.building !== b.building) {
-                    // 依然用数字部分比较楼栋
-                    const nA = /^\d+$/.test(a.building) ? parseInt(a.building) : parseInt(a.building.replace(/[^\d]/g, ''));
-                    const nB = /^\d+$/.test(b.building) ? parseInt(b.building) : parseInt(b.building.replace(/[^\d]/g, ''));
+                if (a.rawBuilding !== b.rawBuilding) {
+                    const nA = parseInt(a.rawBuilding);
+                    const nB = parseInt(b.rawBuilding);
                     result = (isNaN(nA) ? 0 : nA) - (isNaN(nB) ? 0 : nB);
                 } else {
                     result = compareRoomNumbers(roomA, roomB);
