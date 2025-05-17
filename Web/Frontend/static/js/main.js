@@ -173,9 +173,9 @@ function displayElectricityData(data) {
         if (/^\d+$/.test(item.building)) {
             buildingName = `新苑${item.building}号楼`;
         }
-        // 保留原始building在data属性
-        row.setAttribute('data-building', item.building);
-        row.setAttribute('data-room', item.room);
+        // 保证原始building和room始终可用
+        row.dataset.rawBuilding = item.rawBuilding !== undefined ? item.rawBuilding : item.building;
+        row.dataset.rawRoom = item.rawRoom !== undefined ? item.rawRoom : item.room;
         row.innerHTML = `
             <td>${buildingName}</td>
             <td>${item.room}</td>
@@ -183,8 +183,8 @@ function displayElectricityData(data) {
             <td>${getStatusBadge(item.electricity)}</td>
         `;
         row.addEventListener('click', function () {
-            const rawBuilding = this.getAttribute('data-building');
-            const rawRoom = this.getAttribute('data-room');
+            const rawBuilding = this.dataset.rawBuilding;
+            const rawRoom = this.dataset.rawRoom;
             showRoomHistory(rawBuilding, rawRoom);
         });
         tableBody.appendChild(row);
@@ -1065,15 +1065,4 @@ function fixHistoryData() {
                 </div>
             `;
         });
-}
-
-// 关闭历史数据模态框时，将焦点移到搜索框，避免aria-hidden警告
-const roomHistoryModalEl = document.getElementById('roomHistoryModal');
-if (roomHistoryModalEl) {
-    roomHistoryModalEl.addEventListener('hidden.bs.modal', function () {
-        const searchInput = document.getElementById('room-search');
-        if (searchInput) {
-            searchInput.focus();
-        }
-    });
 } 
