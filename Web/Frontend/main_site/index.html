@@ -3,49 +3,96 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>立信校园工具主页</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         body {
+            min-height: 100vh;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f5f6fa 100%);
+        }
+
+        .main-content {
+            flex: 1 0 auto;
+            display: flex;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: #f5f6fa;
+            justify-content: center;
         }
 
         .center-box {
-            text-align: center;
             background: #fff;
-            padding: 40px 60px;
-            border-radius: 16px;
-            box-shadow: 0 4px 24px #0001;
+            padding: 48px 60px 40px 60px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px #0002;
+            text-align: center;
+            max-width: 420px;
+            width: 100%;
         }
 
-        .btn {
-            display: inline-block;
-            padding: 16px 40px;
-            font-size: 1.3rem;
+        .main-title {
+            font-size: 2.4rem;
+            font-weight: bold;
+            color: #2d3a4b;
+            margin-bottom: 18px;
+        }
+
+        .sub-title {
+            font-size: 1.15rem;
+            color: #6c757d;
+            margin-bottom: 32px;
+        }
+
+        .btn-main {
+            padding: 16px 48px;
+            font-size: 1.25rem;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #0078ff 60%, #00c6fb 100%);
             color: #fff;
-            background: #0078ff;
             border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
+            font-weight: 500;
+            box-shadow: 0 2px 8px #0078ff22;
+            transition: background 0.2s, box-shadow 0.2s;
         }
 
-        .btn:hover {
-            background: #005fcc;
+        .btn-main:hover {
+            background: linear-gradient(90deg, #005fcc 60%, #00a6d6 100%);
+            box-shadow: 0 4px 16px #0078ff33;
+        }
+
+        footer {
+            flex-shrink: 0;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            padding: 24px 0 8px 0;
+            margin-top: 40px;
         }
     </style>
 </head>
 
 <body>
-    <div class="center-box">
-        <h1>立信校园工具主页</h1>
-        <p>欢迎访问立信校园工具集</p>
-        <a href="https://electricity.lixinez.icu" class="btn">进入电量查询系统</a>
+    <div class="main-content">
+        <div class="center-box">
+            <div class="mb-4">
+                <i class="bi bi-lightning-charge-fill" style="font-size:2.5rem;color:#0078ff;"></i>
+            </div>
+            <div class="main-title">立信校园工具主页</div>
+            <div class="sub-title">为上海立信学子打造的一站式校园服务平台<br>一卡通、学习通、电量查询等多功能集成</div>
+            <a href="https://electricity.lixinez.icu" class="btn btn-main mb-2"><i
+                    class="bi bi-battery-charging me-2"></i>进入电量查询系统</a>
+        </div>
     </div>
+    <footer>
+        <div class="container text-center">
+            <p class="mb-0">© 2025 电量查询系统 | Li Xin Tools</p>
+            <p class="small text-muted mb-0 mt-1">作者: 顾佳俊 | 微信: AL-0729-zK | 邮箱: 3298732438@qq.com</p>
+            <p class="small text-muted mb-1">上海立信会计金融学院 2023级金融科技5班</p>
+            <p class="small text-muted mb-1"><a href="https://beian.miit.gov.cn/" target="_blank">沪ICP备2025124588号-1</a>
+            </p>
+        </div>
+    </footer>
 </body>
 
 </html>
