@@ -162,37 +162,28 @@ function displayElectricityData(data) {
 
     data.forEach(item => {
         const row = document.createElement('tr');
-
-        // 为低电量行添加警告样式
         if (item.electricity <= 0) {
             row.classList.add('table-danger');
         } else if (item.electricity <= 10) {
             row.classList.add('table-warning');
         }
-
-        // 添加点击整行的样式和交互
         row.style.cursor = 'pointer';
-
-        // 格式化楼栋名称
-        const buildingName = `新苑${item.building}号楼`;
-
-        // 显示房间数据
+        // 只在building为纯数字时添加“新苑x号楼”，否则直接显示原building
+        let buildingName = item.building;
+        if (/^\d+$/.test(item.building)) {
+            buildingName = `新苑${item.building}号楼`;
+        }
         row.innerHTML = `
             <td>${buildingName}</td>
             <td>${item.room}</td>
             <td>${Number(item.electricity).toFixed(2)}</td>
             <td>${getStatusBadge(item.electricity)}</td>
         `;
-
-        // 为整行添加点击事件
         row.addEventListener('click', function () {
             showRoomHistory(item.building, item.room);
         });
-
         tableBody.appendChild(row);
     });
-
-    // 更新表头排序图标
     updateSortHeaderStyles();
 }
 
