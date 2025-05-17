@@ -912,24 +912,56 @@ function formatQueryTimeFull(timeString) {
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
-// 历史图表滑动条联动
+// 历史图表滑动条联动（noUiSlider实现）
 let fullHistoryData = [];
+let historySlider = null;
 function createElectricityChart(history, buildingName, room) {
     fullHistoryData = history;
     // 默认显示全部数据
     renderElectricityChart(history, buildingName, room);
-    // 显示滑动条
+    // 初始化noUiSlider
     const sliderContainer = document.getElementById('history-slider-container');
     const slider = document.getElementById('history-slider');
-    if (sliderContainer && slider) {
-        sliderContainer.style.display = history.length > 10 ? '' : 'none';
-        slider.max = history.length;
-        slider.value = history.length;
-        slider.oninput = function () {
-            const count = parseInt(this.value);
-            const sliced = fullHistoryData.slice(-count);
+    const labelStart = document.getElementById('slider-label-start');
+    const labelEnd = document.getElementById('slider-label-end');
+    if (sliderContainer && slider && history.length > 10 && typeof noUiSlider !== 'undefined') {
+        sliderContainer.style.display = '';
+        // 销毁旧slider
+        if (historySlider && historySlider.destroy) {
+            historySlider.destroy();
+        } else if (slider.noUiSlider) {
+            slider.noUiSlider.destroy();
+        }
+        // 创建新slider
+        noUiSlider.create(slider, {
+            start: [0, history.length - 1],
+            connect: true,
+            range: {
+                min: 0,
+                max: history.length - 1
+            },
+            step: 1,
+            behaviour: 'drag',
+            tooltips: false
+        });
+        slider.noUiSlider.on('update', function (values) {
+            const startIdx = Math.round(values[0]);
+            const endIdx = Math.round(values[1]);
+            const sliced = fullHistoryData.slice(startIdx, endIdx + 1);
             renderElectricityChart(sliced, buildingName, room);
-        };
+            if (labelStart && labelEnd) {
+                labelStart.textContent = fullHistoryData[startIdx] ? formatQueryTimeFull(fullHistoryData[startIdx].query_time) : '';
+                labelEnd.textContent = fullHistoryData[endIdx] ? formatQueryTimeFull(fullHistoryData[endIdx].query_time) : '';
+            }
+        });
+        // 初始显示区间标签
+        if (labelStart && labelEnd) {
+            labelStart.textContent = fullHistoryData[0] ? formatQueryTimeFull(fullHistoryData[0].query_time) : '';
+            labelEnd.textContent = fullHistoryData[history.length - 1] ? formatQueryTimeFull(fullHistoryData[history.length - 1].query_time) : '';
+        }
+        historySlider = slider.noUiSlider;
+    } else if (sliderContainer) {
+        sliderContainer.style.display = 'none';
     }
 }
 function renderElectricityChart(history, buildingName, room) {

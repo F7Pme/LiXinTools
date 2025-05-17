@@ -11,6 +11,7 @@
     <link rel="stylesheet"
         href="{{ url_for('static', filename='lib/bootstrap-icons/font/bootstrap-icons.css') }}?v=202406">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=202406">
+    <link rel="stylesheet" href="{{ url_for('static', filename='lib/nouislider/nouislider.min.css') }}?v=202406">
 </head>
 
 <body>
@@ -308,15 +309,20 @@
         </div>
     </div>
 
-    <!-- 在历史图表canvas下方添加滑动条 -->
+    <!-- 历史图表canvas下方滑动条容器，供noUiSlider使用 -->
     <div id="history-slider-container" class="mt-3" style="display:none;">
-        <input type="range" id="history-slider" min="0" max="100" value="100" style="width:100%;">
+        <div id="history-slider"></div>
+        <div class="d-flex justify-content-between small mt-1">
+            <span id="slider-label-start"></span>
+            <span id="slider-label-end"></span>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='lib/bootstrap/js/bootstrap.bundle.min.js') }}?v=202406"></script>
     <script src="{{ url_for('static', filename='lib/chart.js/chart.min.js') }}?v=202406"></script>
     <script
         src="{{ url_for('static', filename='lib/chartjs-plugin-zoom/chartjs-plugin-zoom.min.js') }}?v=202406"></script>
+    <script src="{{ url_for('static', filename='lib/nouislider/nouislider.min.js') }}?v=202406"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}?v=202406"></script>
 </body>
 
