@@ -105,10 +105,18 @@ build_exe.bat
 - `Log/`: 日志文件目录
 - `cookies/`: 保存的会话数据
 - `__pycache__/`: Python缓存文件目录
-- `Web/`: Web应用目录
-  - `app.py`: Flask Web应用
-  - `templates/`: HTML模板
-  - `static/`: 静态资源文件
+- `Web/Backend/`：后端Flask服务
+  - `__init__.py`：Flask应用工厂，指定模板和静态目录
+  - `app.py`：后端启动入口
+  - `config.py`、`database.py`、`cache.py`：配置、数据库、缓存相关
+  - `routes/`：API路由（电量、历史、调试等）
+- `Web/Frontend/`：前端页面与静态资源
+  - `index.html`：主页面（Flask模板）
+  - `static/`：静态资源目录
+    - `css/`：自定义样式表
+    - `js/`：主前端逻辑（如main.js）
+    - `pic/`：图片/图标
+    - `lib/`：本地化第三方库（bootstrap、chart.js、nouislider等）
 
 ## 开发者模式
 
@@ -126,25 +134,21 @@ build_exe.bat
 ### 网站结构
 
 ```
-/var/www/LiXinTools/        # 主工作目录
-├── Web/                    # Web应用程序目录
-│   ├── app.py              # Flask主程序
-│   ├── templates/          # HTML模板
-│   │   └── index.html      # 主页模板
-│   └── static/             # 静态资源
-│       ├── css/            # 样式表
-│       ├── js/             # JavaScript
-│       ├── pic/            # 图片资源
-│       └── lib/            # 第三方库(本地化CDN资源)
-│           ├── bootstrap/  # Bootstrap库
-│           ├── chart.js/   # Chart.js图表库
-│           └── bootstrap-icons/ # 图标库
-├── scripts/                # 脚本目录
-│   └── query_all_rooms.py  # 定时查询脚本
-├── utils/                  # 工具目录
-│   └── analysis_electricity.py # 电量分析工具
-└── venv/                   # Python虚拟环境
+/var/www/LiXinTools/
+├── Web/
+│   ├── Backend/                # Flask后端
+│   ├── Frontend/               # 前端页面与静态资源
+│   │   ├── index.html
+│   │   └── static/
+│   │       ├── css/
+│   │       ├── js/
+│   │       ├── pic/
+│   │       └── lib/
+│   └── scripts/
+├── venv/
 ```
+- Nginx配置：`/static` 由 Nginx 直接 alias 到 `Web/Frontend/static`，其它请求反代到 Flask。
+- Flask后端：`template_folder='../Frontend'`，`static_folder='../Frontend/static'`，模板和静态资源均指向前端目录。
 
 ### 核心服务
 
@@ -220,4 +224,14 @@ scp -r root@117.72.194.27:/var/www/LiXinTools/Web ./          # 下载文件
 
 ## 贡献
 
-欢迎提交问题报告和贡献代码！ 
+欢迎提交问题报告和贡献代码！
+
+## 项目结构（新版结构，前后端分离）
+
+
+- 其它目录结构同上，详见旧版结构。
+
+## 网站结构（新版结构，生产环境）
+
+
+- 前端所有依赖库本地化，支持断网访问和版本可控。 
