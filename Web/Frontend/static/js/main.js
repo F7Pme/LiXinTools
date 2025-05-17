@@ -3,6 +3,9 @@
  * 版本: v1.0.5
  */
 
+// 房间分页滑动条每页显示数量
+const ROOMS_PER_PAGE = 50;
+
 document.addEventListener('DOMContentLoaded', function () {
     // 初始化
     initialize();
