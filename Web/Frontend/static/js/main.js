@@ -972,26 +972,50 @@ function renderElectricityChart(history, buildingName, room) {
     if (!history || history.length === 0) return;
     const labels = history.map(item => formatQueryTimeFull(item.query_time));
     const data = history.map(item => item.electricity);
-    let minValue = Math.min(...data) * 0.9;
-    minValue = Math.max(0, minValue);
-    const maxValue = Math.max(...data) * 1.1;
+    // 计算消耗电量（前一时刻-当前时刻，首个点为null）
+    const consumed = history.map((item, idx, arr) => {
+        if (idx === 0) return null;
+        const diff = arr[idx - 1].electricity - item.electricity;
+        return diff > 0.0001 ? diff : null; // 只记录消耗大于0的点
+    });
+    // 只在消耗电量不为null时显示点
+    const consumedData = consumed.map(v => v === null ? null : v);
     window.electricityChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: `${buildingName}-${room} 剩余电量(度)`,
-                data: data,
-                backgroundColor: 'rgba(13, 110, 253, 0.15)',
-                borderColor: 'rgba(13, 110, 253, 1)',
-                borderWidth: 2,
-                tension: 0.3,
-                pointRadius: 5,
-                pointHoverRadius: 7,
-                pointBackgroundColor: 'rgba(255, 140, 0, 1)',
-                pointBorderColor: 'rgba(13, 110, 253, 1)',
-                pointBorderWidth: 2
-            }]
+            datasets: [
+                {
+                    label: `${buildingName}-${room} 剩余电量(度)`,
+                    data: data,
+                    backgroundColor: 'rgba(13, 110, 253, 0.15)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: 'rgba(255, 140, 0, 1)',
+                    pointBorderColor: 'rgba(13, 110, 253, 1)',
+                    pointBorderWidth: 2,
+                    yAxisID: 'y',
+                },
+                {
+                    label: '消耗电量(度)',
+                    data: consumedData,
+                    borderColor: 'rgba(220,53,69,1)', // Bootstrap红色
+                    backgroundColor: 'rgba(220,53,69,0.08)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgba(220,53,69,1)',
+                    pointBorderColor: 'rgba(220,53,69,1)',
+                    pointBorderWidth: 2,
+                    spanGaps: true,
+                    yAxisID: 'y',
+                    hidden: false
+                }
+            ]
         },
         options: {
             responsive: true,
@@ -1006,10 +1030,15 @@ function renderElectricityChart(history, buildingName, room) {
                         label: function (context) {
                             const index = context.dataIndex;
                             const record = history[index];
-                            return [
-                                `电量: ${record.electricity.toFixed(2)}度`,
-                                `时间: ${formatQueryTimeFull(record.query_time)}`
-                            ];
+                            let lines = [];
+                            if (context.datasetIndex === 0) {
+                                lines.push(`电量: ${record.electricity.toFixed(2)}度`);
+                            }
+                            if (context.datasetIndex === 1 && consumed[index] !== null) {
+                                lines.push(`消耗: ${consumed[index].toFixed(2)}度`);
+                            }
+                            lines.push(`时间: ${formatQueryTimeFull(record.query_time)}`);
+                            return lines;
                         }
                     }
                 },
@@ -1022,8 +1051,8 @@ function renderElectricityChart(history, buildingName, room) {
             scales: {
                 y: {
                     beginAtZero: false,
-                    min: minValue,
-                    max: maxValue,
+                    min: Math.max(0, Math.min(...data) * 0.9),
+                    max: Math.max(...data) * 1.1,
                     grid: { color: 'rgba(0, 0, 0, 0.05)' },
                     title: {
                         display: true,
