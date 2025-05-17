@@ -48,6 +48,13 @@
             word-break: break-all;
         }
 
+        .nowrap-link {
+            display: inline-block;
+            white-space: nowrap;
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
         .main-row {
             display: flex;
             align-items: center;
@@ -70,6 +77,13 @@
             display: inline-block;
             vertical-align: middle;
             white-space: nowrap;
+        }
+
+        .btn-main:hover,
+        .btn-main:focus {
+            color: #fff;
+            background: linear-gradient(90deg, #0078ff 60%, #00c6fb 100%);
+            box-shadow: 0 2px 8px #0078ff22;
         }
 
         footer {
@@ -95,8 +109,8 @@
             </div>
             <div class="sub-title">
                 项目原地址：<br>
-                <a href="https://github.com/F7Pme/LiXinTools" target="_blank"
-                    style="color:#0078ff;text-decoration:underline;word-break:break-all;">https://github.com/F7Pme/LiXinTools</a>
+                <a href="https://github.com/F7Pme/LiXinTools" target="_blank" class="nowrap-link"
+                    style="color:#0078ff;text-decoration:underline;">https://github.com/F7Pme/LiXinTools</a>
             </div>
         </div>
     </div>
