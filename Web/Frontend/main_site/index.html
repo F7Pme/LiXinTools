@@ -37,6 +37,8 @@
             font-weight: bold;
             color: #2d3a4b;
             margin-bottom: 18px;
+            display: inline-block;
+            vertical-align: middle;
         }
 
         .sub-title {
@@ -44,6 +46,17 @@
             color: #6c757d;
             margin-bottom: 32px;
             word-break: break-all;
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+
+        .main-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 32px;
         }
 
         .btn-main {
@@ -56,6 +69,9 @@
             font-weight: 500;
             box-shadow: 0 2px 8px #0078ff22;
             transition: background 0.2s, box-shadow 0.2s;
+            display: inline-block;
+            vertical-align: middle;
+            white-space: nowrap;
         }
 
         footer {
@@ -74,10 +90,13 @@
             <div class="mb-4">
                 <i class="bi bi-lightning-charge-fill" style="font-size:2.5rem;color:#0078ff;"></i>
             </div>
-            <div class="main-title">立信校园工具</div>
-            <div class="sub-title">项目原地址：<br>https://github.com/F7Pme/LiXinTools</div>
-            <a href="https://electricity.lixinez.icu" class="btn btn-main mb-2"><i
-                    class="bi bi-battery-charging me-2"></i>进入电量查询系统</a>
+            <div class="main-row">
+                <div class="main-title">立信校园工具</div>
+                <a href="https://electricity.lixinez.icu" class="btn btn-main mb-2 ms-3"><i
+                        class="bi bi-battery-charging me-2"></i>进入电量查询系统</a>
+            </div>
+            <div class="sub-title">项目原地址：<a href="https://github.com/F7Pme/LiXinTools" target="_blank"
+                    style="color:#0078ff;text-decoration:underline;">https://github.com/F7Pme/LiXinTools</a></div>
         </div>
     </div>
     <footer>
