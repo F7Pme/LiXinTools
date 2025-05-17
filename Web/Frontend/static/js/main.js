@@ -140,9 +140,9 @@ function fetchElectricityData() {
  * 显示电量数据
  */
 function displayElectricityData(data) {
+    allRoomData = data;
     const tableBody = document.getElementById('room-data');
     tableBody.innerHTML = '';
-
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
@@ -152,23 +152,64 @@ function displayElectricityData(data) {
                 </td>
             </tr>
         `;
+        // 隐藏滑动条
+        const sliderContainer = document.getElementById('room-slider-container');
+        if (sliderContainer) sliderContainer.style.display = 'none';
         return;
     }
-
-    // 给每个数据项补充rawBuilding字段（只要是数字就用数字，否则尝试提取数字，否则用原值）
-    data = data.map(item => {
-        let rawBuilding = item.building;
-        if (typeof rawBuilding === 'string' && !/^\d+$/.test(rawBuilding)) {
-            const match = rawBuilding.match(/(\d+)/);
-            if (match) rawBuilding = match[1];
+    // 初始化房间滑动条
+    const sliderContainer = document.getElementById('room-slider-container');
+    const slider = document.getElementById('room-slider');
+    const labelStart = document.getElementById('room-slider-label-start');
+    const labelEnd = document.getElementById('room-slider-label-end');
+    if (sliderContainer && slider && data.length > ROOMS_PER_PAGE && typeof noUiSlider !== 'undefined') {
+        sliderContainer.style.display = '';
+        // 销毁旧slider
+        if (roomSlider && roomSlider.destroy) {
+            roomSlider.destroy();
+        } else if (slider.noUiSlider) {
+            slider.noUiSlider.destroy();
         }
-        return { ...item, rawBuilding };
-    });
-
-    if (window.currentSort) {
-        data = sortRoomData(data, window.currentSort.field, window.currentSort.direction);
+        // 创建新slider
+        noUiSlider.create(slider, {
+            start: [0, ROOMS_PER_PAGE - 1],
+            connect: true,
+            range: {
+                min: 0,
+                max: data.length - 1
+            },
+            step: 1,
+            behaviour: 'drag',
+            tooltips: false
+        });
+        slider.noUiSlider.on('update', function (values) {
+            const startIdx = Math.round(values[0]);
+            const endIdx = Math.round(values[1]);
+            renderRoomTable(allRoomData.slice(startIdx, endIdx + 1));
+            if (labelStart && labelEnd) {
+                labelStart.textContent = allRoomData[startIdx] ? `${allRoomData[startIdx].building}-${allRoomData[startIdx].room}` : '';
+                labelEnd.textContent = allRoomData[endIdx] ? `${allRoomData[endIdx].building}-${allRoomData[endIdx].room}` : '';
+            }
+        });
+        // 初始显示区间标签
+        if (labelStart && labelEnd) {
+            labelStart.textContent = allRoomData[0] ? `${allRoomData[0].building}-${allRoomData[0].room}` : '';
+            labelEnd.textContent = allRoomData[ROOMS_PER_PAGE - 1] ? `${allRoomData[ROOMS_PER_PAGE - 1].building}-${allRoomData[ROOMS_PER_PAGE - 1].room}` : '';
+        }
+        roomSlider = slider.noUiSlider;
+        // 初始渲染第一页
+        renderRoomTable(allRoomData.slice(0, ROOMS_PER_PAGE));
+        return;
+    } else if (sliderContainer) {
+        sliderContainer.style.display = 'none';
     }
+    // 数据量较少时直接渲染全部
+    renderRoomTable(data);
+}
 
+function renderRoomTable(data) {
+    const tableBody = document.getElementById('room-data');
+    tableBody.innerHTML = '';
     data.forEach(item => {
         const row = document.createElement('tr');
         if (item.electricity <= 0) row.classList.add('table-danger');
