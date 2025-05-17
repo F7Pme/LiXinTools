@@ -306,6 +306,9 @@
                     <button type="button" class="btn btn-primary" id="export-history-btn">
                         <i class="bi bi-download"></i> 导出数据
                     </button>
+                    <button type="button" class="btn btn-outline-info" id="reset-zoom-btn">
+                        <i class="bi bi-arrows-fullscreen"></i> 重置缩放
+                    </button>
                 </div>
             </div>
         </div>
@@ -313,6 +316,8 @@
 
     <script src="{{ url_for('static', filename='lib/bootstrap/js/bootstrap.bundle.min.js') }}?v=202406"></script>
     <script src="{{ url_for('static', filename='lib/chart.js/chart.min.js') }}?v=202406"></script>
+    <script
+        src="{{ url_for('static', filename='lib/chartjs-plugin-zoom/chartjs-plugin-zoom.min.js') }}?v=202406"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}?v=202406"></script>
 </body>
 
