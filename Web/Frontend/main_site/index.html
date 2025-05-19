@@ -150,10 +150,17 @@
                 justify-content: center;
             }
 
-            .btn-app {
-                width: 130px;
-                height: 130px;
-                padding: 15px 5px;
+            .btn-app,
+            .dropdown-container {
+                width: 130px !important;
+                /* 强制相同宽度 */
+                min-width: 130px !important;
+                /* 确保最小宽度 */
+                max-width: 130px !important;
+                /* 确保最大宽度 */
+                flex: 0 0 130px !important;
+                /* 禁止伸缩 */
+                box-sizing: border-box !important;
             }
 
             .btn-app .icon {
@@ -163,6 +170,10 @@
 
             .btn-app .label {
                 font-size: 0.9rem;
+                white-space: normal;
+                /* 允许文本换行 */
+                overflow-wrap: break-word;
+                /* 允许单词内换行 */
             }
         }
 
@@ -181,6 +192,8 @@
             transition: all 0.3s ease;
             overflow: hidden;
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+            /* 确保padding计入总宽度 */
         }
 
         .btn-app::before {
@@ -223,6 +236,8 @@
             position: relative;
             display: inline-block;
             width: 160px;
+            box-sizing: border-box;
+            /* 确保与btn-app使用相同的盒模型 */
         }
 
         .dropdown-menu {
@@ -261,12 +276,6 @@
         /* 移除悬停显示规则 */
         .dropdown-menu.show {
             display: block;
-        }
-
-        @media (max-width: 600px) {
-            .dropdown-container {
-                width: 130px;
-            }
         }
     </style>
 </head>
