@@ -134,6 +134,7 @@
         .buttons-container {
             display: flex;
             justify-content: center;
+            align-items: center;
             gap: 20px;
             margin-top: 10px;
             margin-bottom: 30px;
@@ -146,6 +147,7 @@
                 flex-direction: row;
                 gap: 10px;
                 flex-wrap: nowrap;
+                justify-content: center;
             }
 
             .btn-app {
@@ -220,6 +222,7 @@
         .dropdown-container {
             position: relative;
             display: inline-block;
+            width: 160px;
         }
 
         .dropdown-menu {
@@ -234,7 +237,11 @@
             padding: 8px 0;
             z-index: 10;
             margin-top: 5px;
-            width: 160px;
+            width: 100%;
+        }
+
+        .dropdown-container .btn-app {
+            width: 100%;
         }
 
         .dropdown-menu a {
@@ -254,6 +261,12 @@
         /* 移除悬停显示规则 */
         .dropdown-menu.show {
             display: block;
+        }
+
+        @media (max-width: 600px) {
+            .dropdown-container {
+                width: 130px;
+            }
         }
     </style>
 </head>
