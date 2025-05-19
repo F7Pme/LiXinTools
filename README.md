@@ -172,59 +172,127 @@ build_exe.bat
 
 ### 常用维护命令
 
+#### 服务管理
 ```bash
-# 服务管理
+# 核心服务
 sudo systemctl restart lixintools-web  # 重启Web应用
 sudo systemctl restart nginx           # 重启Nginx
 sudo systemctl restart redis-server    # 重启Redis
 sudo systemctl restart mysql           # 重启MySQL
+```
 
-# 日志查看
+#### 日志查看
+```bash
 tail -f /var/log/electricity_query.log # 查看电量查询日志
 journalctl -u lixintools-web -f        # 查看Web应用日志
 sudo tail -f /var/log/nginx/access.log # 查看Nginx访问日志
 sudo tail -f /var/log/nginx/error.log  # 查看Nginx错误日志
+```
 
-# 数据库操作
+#### 数据库操作
+```bash
 mysql -u elecuser -p                   # 登录MySQL
 > use electricity_data;                # 选择数据库
 > SELECT * FROM query_history LIMIT 5; # 查询示例
+```
 
-# Redis缓存操作
+#### Redis缓存操作
+```bash
 redis-cli                              # 连接Redis
 > AUTH 您的密码                         # 认证(如果设置了密码)
 > KEYS *                               # 查看所有键
 > GET get_latest_query_time            # 查看缓存值
 > FLUSHALL                             # 清空所有缓存
+```
 
-# 代码管理
+#### 代码管理
+```bash
 git clone root@117.72.194.27:/opt/LiXinTools  # 克隆仓库到本地
 git push jdcloud main                         # 推送更新到服务器
+```
 
-# 文件传输
+#### 文件传输
+```bash
 scp -r local_file.py root@117.72.194.27:/var/www/LiXinTools/  # 上传文件
 scp -r root@117.72.194.27:/var/www/LiXinTools/Web ./          # 下载文件
+```
 
-# 其它常用命令
+#### Docker管理
+```bash
+# Docker配置
+sudo nano /etc/docker/daemon.json
+sudo systemctl restart docker
+# Docker服务管理
+systemctl start docker    # 启动Docker服务
+systemctl enable docker   # 设置Docker开机自启
+systemctl restart docker  # 重启Docker服务
 
+# 容器管理
+docker ps                 # 列出运行中的容器
+docker ps -a              # 列出所有容器(包括停止的)
+docker logs CONTAINER_ID  # 查看容器日志
+docker exec -it CONTAINER_ID bash  # 进入容器内部
+
+# 资源清理
+docker stop $(docker ps -q)        # 停止所有容器
+docker rm $(docker ps -a -q)       # 删除所有容器
+docker system prune -a --volumes   # 清理未使用的镜像、容器和卷
+docker volume ls                   # 列出所有卷
+
+# Docker Compose 命令
+docker-compose up -d               # 后台启动服务
+docker-compose down                # 停止并移除容器
+docker-compose logs                # 查看所有服务日志
+docker-compose logs service_name   # 查看特定服务日志
+```
+
+#### Nginx管理
+```bash
 # 查看Nginx配置
 cat /etc/nginx/nginx.conf
 cat /etc/nginx/sites-enabled/*
+# Nginx服务管理
+systemctl start nginx     # 启动Nginx
+systemctl reload nginx    # 重新加载Nginx配置
+systemctl restart nginx   # 重启Nginx
 
-# 查看Redis配置
-cat /etc/redis/redis.conf
+# 配置文件管理
+nginx -t                  # 测试Nginx配置文件
+nano /etc/nginx/sites-enabled/dify.conf  # 编辑Dify站点配置
+cat /var/log/nginx/error.log             # 查看Nginx错误日志
+```
 
-# 查看/opt/LiXinTools/目录内容
-ls -la /opt/LiXinTools/
+#### 系统资源
+```bash
+# 查看系统资源使用情况
+free -h                  # 显示内存使用情况
+df -h                    # 显示磁盘使用情况
+htop                     # 交互式进程查看器(需安装)
+du -h --max-depth=1 /    # 查看根目录各文件夹大小
 
-# 查看/var/www/LiXinTools/目录内容(这是实际的工作目录)
-ls -la /var/www/LiXinTools/
+# Swap管理
+swapoff /swapfile        # 关闭swap文件
+dd if=/dev/zero of=/swapfile bs=1M count=4096  # 创建4GB swap文件
+chmod 600 /swapfile      # 设置权限
+mkswap /swapfile         # 格式化为swap
+swapon /swapfile         # 启用swap
+echo '/swapfile none swap sw 0 0' >> /etc/fstab  # 开机自启动
+```
 
-# 查看工作目录下的主要文件和目录
-find /var/www/LiXinTools -type d -maxdepth 2 | sort
+#### SSL证书管理
+```bash
+# 安装Certbot
+apt update
+apt install -y certbot python3-certbot-nginx
 
-# 查看Web应用目录结构
-find /var/www/LiXinTools/Web -type f -name "*.py" | sort
+# 申请和自动配置证书
+certbot --nginx -d dify.lixinez.icu
+
+# 手动续期证书(通常会自动)
+certbot renew
+
+# 查看现有证书
+certbot certificates
 ```
 
 ### 故障处理
