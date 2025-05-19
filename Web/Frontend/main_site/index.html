@@ -129,6 +129,75 @@
             padding: 24px 0 8px 0;
             margin-top: 40px;
         }
+
+        /* 新按钮样式 */
+        .buttons-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+
+        @media (max-width: 600px) {
+            .buttons-container {
+                flex-direction: column;
+                gap: 16px;
+            }
+        }
+
+        .btn-app {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 160px;
+            height: 150px;
+            border-radius: 16px;
+            padding: 20px 10px;
+            text-decoration: none;
+            color: #fff;
+            transition: all 0.3s ease;
+            overflow: hidden;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-app::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            transition: all 0.3s ease;
+        }
+
+        .btn-app:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-app .icon {
+            font-size: 2.8rem;
+            margin-bottom: 12px;
+        }
+
+        .btn-app .label {
+            font-size: 1.1rem;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .btn-electricity {
+            background: linear-gradient(135deg, #36D1DC 0%, #5B86E5 100%);
+        }
+
+        .btn-ai {
+            background: linear-gradient(135deg, #834d9b 0%, #d04ed6 100%);
+        }
     </style>
 </head>
 
@@ -138,13 +207,19 @@
             <div class="mb-4">
                 <i class="bi bi-lightning-charge-fill" style="font-size:2.5rem;color:#0078ff;"></i>
             </div>
-            <div class="main-row flex-column flex-md-row justify-content-center align-items-center">
-                <div class="main-title mb-2 mb-md-0">立信校园工具</div>
-                <a href="https://electricity.lixinez.icu" class="btn btn-main mb-2"><i
-                        class="bi bi-battery-charging me-2"></i>进入电量查询系统</a>
-                <a href="https://dify.lixinez.icu" class="btn btn-main mb-2" style="margin-top: 12px;"><i
-                        class="bi bi-robot me-2"></i>进入Dify AI</a>
+            <div class="main-title mb-2 mb-md-0">立信校园工具</div>
+
+            <div class="buttons-container">
+                <a href="https://electricity.lixinez.icu" class="btn-app btn-electricity">
+                    <span class="icon"><i class="bi bi-battery-charging"></i></span>
+                    <span class="label">电量查询系统</span>
+                </a>
+                <a href="https://dify.lixinez.icu" class="btn-app btn-ai">
+                    <span class="icon"><i class="bi bi-robot"></i></span>
+                    <span class="label">Dify AI 助手</span>
+                </a>
             </div>
+
             <div class="sub-title">
                 项目原地址：<br>
                 <a href="https://github.com/F7Pme/LiXinTools" target="_blank" class="nowrap-link"
